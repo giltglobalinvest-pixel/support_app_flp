@@ -30,8 +30,8 @@ button{cursor:pointer;border:none;background:none}
     radial-gradient(ellipse 50% 40% at 10% 100%, rgba(192,132,252,.10), transparent 50%),
     var(--bg);
   display:flex;flex-direction:column;position:relative;overflow:hidden;
-  padding-top:env(safe-area-inset-top);
-  padding-bottom:env(safe-area-inset-bottom);
+  padding-top:min(env(safe-area-inset-top), 30px);
+  padding-bottom:min(env(safe-area-inset-bottom), 14px);
 }
 
 .view{display:none;flex-direction:column;flex:1;min-height:0;position:relative;animation:fadeIn .25s}
@@ -488,7 +488,7 @@ button{cursor:pointer;border:none;background:none}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v1.3.1';
+const APP_VERSION = 'v1.3.2';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
