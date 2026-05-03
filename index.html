@@ -422,6 +422,35 @@ button{cursor:pointer;border:none;background:none}
 .wissen-doc .wissen-doc-status.error{background:rgba(248,113,113,.15);color:var(--danger)}
 .wissen-doc .wissen-doc-del{background:transparent;border:1px solid rgba(248,113,113,.30);color:var(--danger);padding:3px 8px;border-radius:4px;font-size:11px;font-family:'JetBrains Mono',monospace}
 
+.user-mgmt-filter{display:flex;flex-wrap:wrap;gap:5px;padding-bottom:14px;border-bottom:1px solid var(--rule);margin-bottom:14px}
+.user-mgmt-row{display:flex;align-items:center;gap:10px;padding:11px 12px;background:var(--surface);border:1px solid var(--rule-strong);border-radius:8px;margin-bottom:5px}
+.user-mgmt-row .info{flex:1;min-width:0}
+.user-mgmt-row .name{font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:6px}
+.user-mgmt-row .role{font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;text-transform:uppercase;letter-spacing:.08em;background:rgba(56,189,248,.12);color:var(--accent)}
+.user-mgmt-row .role.admin{background:rgba(192,132,252,.18);color:var(--ai)}
+.user-mgmt-row .meta{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;margin-top:3px;display:flex;gap:8px;flex-wrap:wrap}
+.user-mgmt-row .status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.user-mgmt-row .status-dot.online{background:var(--online);box-shadow:0 0 6px var(--online)}
+.user-mgmt-row .status-dot.offline{background:var(--text-very-dim)}
+.user-mgmt-row .status-dot.inactive{background:var(--danger)}
+
+.dash-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:18px}
+.dash-tile{background:var(--surface);border:1px solid var(--rule-strong);border-radius:10px;padding:14px}
+.dash-tile .label{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.1em;font-weight:600}
+.dash-tile .value{font-family:'Archivo',sans-serif;font-weight:800;font-stretch:75%;font-size:32px;color:var(--text);line-height:1;margin-top:6px;letter-spacing:-.02em}
+.dash-tile .sub{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-very-dim);text-transform:uppercase;letter-spacing:.08em;margin-top:4px}
+.dash-tile.accent .value{color:var(--accent)}
+.dash-tile.ai .value{color:var(--ai)}
+.dash-tile.online .value{color:var(--online)}
+.dash-tile.danger .value{color:var(--danger)}
+.dash-section-title{font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.14em;color:var(--text-dim);margin:18px 0 10px;padding-bottom:7px;border-bottom:1px solid var(--rule)}
+.dash-bar-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--rule)}
+.dash-bar-row:last-child{border-bottom:none}
+.dash-bar-row .lbl{flex:1;font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dash-bar-row .bar{flex:2;height:10px;background:var(--surface);border-radius:5px;overflow:hidden;position:relative}
+.dash-bar-row .bar .fill{height:100%;background:linear-gradient(90deg,var(--accent),#7dd3fc);border-radius:5px}
+.dash-bar-row .num{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:var(--accent);min-width:30px;text-align:right}
+
 .upload-zone{border:1.5px dashed var(--rule-strong);border-radius:8px;padding:16px;text-align:center;color:var(--text-dim);font-size:13px;margin-bottom:10px;cursor:pointer;transition:all .15s}
 .upload-zone:hover,.upload-zone.over{border-color:var(--accent);color:var(--accent);background:rgba(56,189,248,.05)}
 .upload-zone .icon{font-size:24px;margin-bottom:6px}
@@ -608,6 +637,28 @@ button{cursor:pointer;border:none;background:none}
   </div>
 </div>
 
+<!-- ADMIN: USER-VERWALTUNG MODAL -->
+<div class="modal" id="userMgmtModal">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <div class="modal-title">User-Verwaltung</div>
+      <button class="modal-close" onclick="closeModal('userMgmtModal')">×</button>
+    </div>
+    <div class="modal-body" id="userMgmtBody"></div>
+  </div>
+</div>
+
+<!-- ADMIN: DASHBOARD MODAL -->
+<div class="modal" id="dashboardModal">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <div class="modal-title">Dashboard</div>
+      <button class="modal-close" onclick="closeModal('dashboardModal')">×</button>
+    </div>
+    <div class="modal-body" id="dashboardBody"></div>
+  </div>
+</div>
+
 <!-- AVATAR-AUSWAHL MODAL -->
 <div class="modal" id="avatarModal">
   <div class="modal-sheet">
@@ -692,7 +743,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.1';
+const APP_VERSION = 'v2.2';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -2873,6 +2924,8 @@ function openSettings(){
     <div class="settings-row"><div class="settings-label">Expertise ändern</div><button class="settings-action" onclick="reopenOnboarding()">Bearbeiten</button></div>
     <div class="settings-row"><div><div class="settings-label">Wissensbasis</div><div class="settings-value" style="margin-top:3px">PDFs hochladen · KI-Analyse</div></div><button class="settings-action" onclick="closeModal('settingsModal');openWissenModal()">Öffnen</button></div>
     ${isAdmin() ? '<div class="settings-row"><div><div class="settings-label">Katalog verwalten</div><div class="settings-value" style="margin-top:3px">Modelle · Steuerungen · FU · Komponenten</div></div><button class="settings-action" onclick="closeModal(\'settingsModal\');openKatalogModal()">Öffnen</button></div>' : ''}
+    ${isAdmin() ? '<div class="settings-row"><div><div class="settings-label">User-Verwaltung</div><div class="settings-value" style="margin-top:3px">Liste + Filter</div></div><button class="settings-action" onclick="openUserMgmt()">Öffnen</button></div>' : ''}
+    ${isAdmin() ? '<div class="settings-row"><div><div class="settings-label">Dashboard</div><div class="settings-value" style="margin-top:3px">Statistiken + Performance</div></div><button class="settings-action" onclick="openDashboard()">Öffnen</button></div>' : ''}
     <div class="settings-row"><div><div class="settings-label">Update erzwingen</div><div class="settings-value" style="margin-top:3px">Cache leeren + neu laden</div></div><button class="settings-action" onclick="forceHardReload()">Aktualisieren</button></div>
     <div class="settings-row"><div class="settings-label">Logout</div><button class="settings-action danger" onclick="logout()">Abmelden</button></div>
     <div class="settings-row"><div class="settings-label">Version</div><div class="settings-value">${APP_VERSION}</div></div>
@@ -3010,6 +3063,188 @@ function refreshAvatars(){
   }
   // Konstellation neu rendern (zeigt eigene Avatare anderer User)
   if(STATE.activeTab === 'konstellation') renderConstellation();
+}
+
+// ============================================================
+// ADMIN: USER-VERWALTUNG
+// ============================================================
+let USER_MGMT_FILTER = 'alle'; // 'alle' | 'aktiv' | 'inaktiv' | 'admin' | 'onboarded' | 'pending'
+let USER_MGMT_USERS = [];
+
+async function openUserMgmt(){
+  if(!isAdmin()){ toast('Nur Admins', 'error'); return; }
+  closeModal('settingsModal');
+  USER_MGMT_FILTER = 'alle';
+  openModal('userMgmtModal');
+  document.getElementById('userMgmtBody').innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-dim)"><span class="loader"></span> Lade User...</div>';
+  try {
+    USER_MGMT_USERS = await atRead('User');
+    renderUserMgmt();
+  } catch(e){ toast(e.message, 'error'); }
+}
+
+function renderUserMgmt(){
+  const body = document.getElementById('userMgmtBody');
+  const profByKey = {};
+  STATE.techProfiles.forEach(p => { profByKey[p.fields.api_key] = p; });
+  // Filter anwenden
+  const filtered = USER_MGMT_USERS.filter(u => {
+    const p = profByKey[u.fields.api_key];
+    const role = (u.fields.role || '').toLowerCase();
+    const status = (u.fields.status || '').toLowerCase();
+    if(USER_MGMT_FILTER === 'aktiv') return status === 'aktiv';
+    if(USER_MGMT_FILTER === 'inaktiv') return status !== 'aktiv';
+    if(USER_MGMT_FILTER === 'admin') return role.includes('admin');
+    if(USER_MGMT_FILTER === 'onboarded') return p?.fields?.onboarding_done === true;
+    if(USER_MGMT_FILTER === 'pending') return status === 'aktiv' && p?.fields?.onboarding_done !== true;
+    return true;
+  });
+  // Filter-Chips
+  const filters = [
+    { key:'alle', label:'Alle' },
+    { key:'aktiv', label:'Aktiv' },
+    { key:'inaktiv', label:'Inaktiv' },
+    { key:'admin', label:'Admins' },
+    { key:'onboarded', label:'Onboarded' },
+    { key:'pending', label:'Pending Onboarding' },
+  ];
+  let html = '<div class="user-mgmt-filter">';
+  filters.forEach(f => {
+    html += '<button class="chip '+(USER_MGMT_FILTER===f.key?'selected':'')+'" onclick="setUserMgmtFilter(\''+f.key+'\')">'+f.label+'</button>';
+  });
+  html += '</div>';
+  html += '<div style="font-family:JetBrains Mono,monospace;font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">'+filtered.length+' User</div>';
+  if(filtered.length === 0){
+    html += '<div style="text-align:center;padding:30px;color:var(--text-very-dim);font-style:italic">Keine User mit diesem Filter</div>';
+  }
+  filtered.forEach(u => {
+    const f = u.fields;
+    const p = profByKey[f.api_key];
+    const role = (f.role || 'user').toLowerCase();
+    const status = (f.status || 'inaktiv').toLowerCase();
+    const isOnboarded = p?.fields?.onboarding_done === true;
+    const lastSeen = p?.fields?.last_seen ? new Date(p.fields.last_seen) : null;
+    const isOnline = lastSeen && (Date.now() - lastSeen.getTime() < 5*60*1000);
+    const dotCls = status !== 'aktiv' ? 'inactive' : (isOnline ? 'online' : 'offline');
+    const dotLabel = status !== 'aktiv' ? 'INAKTIV' : (isOnline ? 'ONLINE' : 'OFFLINE');
+    const lastSeenStr = lastSeen ? lastSeen.toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+    const skills = [
+      ...(p ? parseList(p.fields.models).slice(0,2) : []),
+      ...(p ? parseList(p.fields.controls).slice(0,1) : []),
+    ].join(' · ') || (isOnboarded ? '—' : 'Noch nicht onboarded');
+    html += '<div class="user-mgmt-row">';
+    html += '<div class="status-dot '+dotCls+'" title="'+dotLabel+'"></div>';
+    html += '<div class="info">';
+    html += '<div class="name">'+esc(f.name || f.api_key)+' <span class="role '+(role==='admin'?'admin':'')+'">'+(role==='admin'?'ADMIN':'USER')+'</span></div>';
+    html += '<div class="meta"><span>'+esc(f.api_key)+'</span><span>'+esc(skills)+'</span><span>Letzte Aktivität: '+esc(lastSeenStr)+'</span></div>';
+    html += '</div></div>';
+  });
+  body.innerHTML = html;
+}
+
+function setUserMgmtFilter(key){
+  USER_MGMT_FILTER = key;
+  renderUserMgmt();
+}
+
+// ============================================================
+// ADMIN: DASHBOARD
+// ============================================================
+async function openDashboard(){
+  if(!isAdmin()){ toast('Nur Admins', 'error'); return; }
+  closeModal('settingsModal');
+  openModal('dashboardModal');
+  document.getElementById('dashboardBody').innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-dim)"><span class="loader"></span> Lade Statistiken...</div>';
+  try {
+    // Daten laden parallel
+    const [users, allChats, allMessages, allWissen] = await Promise.all([
+      atRead('User'),
+      atRead('Chats'),
+      atRead('Messages').catch(()=>[]),
+      atRead('Wissen').catch(()=>[]),
+    ]);
+    renderDashboard(users, allChats, allMessages, allWissen);
+  } catch(e){
+    document.getElementById('dashboardBody').innerHTML = '<div style="color:var(--danger);padding:20px;text-align:center">'+esc(e.message)+'</div>';
+  }
+}
+
+function renderDashboard(users, allChats, allMessages, allWissen){
+  const body = document.getElementById('dashboardBody');
+  const now = Date.now();
+  // User-Stats
+  const activeUsers = users.filter(u => (u.fields.status || '').toLowerCase() === 'aktiv');
+  const profByKey = {};
+  STATE.techProfiles.forEach(p => { profByKey[p.fields.api_key] = p; });
+  const onlineUsers = activeUsers.filter(u => {
+    const p = profByKey[u.fields.api_key];
+    if(!p?.fields?.last_seen) return false;
+    return (now - new Date(p.fields.last_seen).getTime()) < 5*60*1000;
+  });
+  const onboarded = activeUsers.filter(u => profByKey[u.fields.api_key]?.fields?.onboarding_done === true);
+  const admins = users.filter(u => ((u.fields.role || '') + '').toLowerCase().includes('admin'));
+  // Chat-Stats
+  const aktiveChats = allChats.filter(c => c.fields.status !== 'resolved');
+  const resolvedChats = allChats.filter(c => c.fields.status === 'resolved');
+  const resRate = allChats.length ? Math.round(resolvedChats.length / allChats.length * 100) : 0;
+  // Messages
+  const aiMessages = allMessages.filter(m => m.fields.msg_type === 'ai');
+  const voiceMessages = allMessages.filter(m => m.fields.msg_type === 'voice');
+  // Wissen
+  const wissenReady = allWissen.filter(w => w.fields.status === 'ready' || !w.fields.status);
+  // Top Modelle (aus context_tags der Chats)
+  const tagCount = {};
+  allChats.forEach(c => {
+    try {
+      const tags = JSON.parse(c.fields.context_tags || '[]');
+      tags.forEach(t => { const key = t.name; tagCount[key] = (tagCount[key] || 0) + 1; });
+    } catch(e){}
+  });
+  const topTags = Object.entries(tagCount).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const maxTagCount = topTags[0]?.[1] || 1;
+  // Top Aktive User (nach Last-seen + Message-Count)
+  const userMsgCount = {};
+  allMessages.forEach(m => {
+    const k = m.fields.sender_key;
+    if(!k || k.startsWith('__')) return;
+    userMsgCount[k] = (userMsgCount[k] || 0) + 1;
+  });
+  const topUsers = Object.entries(userMsgCount).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k, count]) => {
+    const u = users.find(x => x.fields.api_key === k);
+    return { name: u?.fields?.name || k, count };
+  });
+  const maxUserCount = topUsers[0]?.count || 1;
+
+  let html = '';
+  html += '<div class="dash-grid">';
+  html += '<div class="dash-tile online"><div class="label">User Online</div><div class="value">'+onlineUsers.length+'</div><div class="sub">von '+activeUsers.length+' aktiven</div></div>';
+  html += '<div class="dash-tile accent"><div class="label">Aktive User</div><div class="value">'+activeUsers.length+'</div><div class="sub">'+onboarded.length+' onboarded</div></div>';
+  html += '<div class="dash-tile ai"><div class="label">Admins</div><div class="value">'+admins.length+'</div><div class="sub">von '+users.length+' total</div></div>';
+  html += '<div class="dash-tile danger"><div class="label">Pending Onboarding</div><div class="value">'+(activeUsers.length - onboarded.length)+'</div><div class="sub">noch nicht fertig</div></div>';
+  html += '<div class="dash-tile accent"><div class="label">Aktive Chats</div><div class="value">'+aktiveChats.length+'</div><div class="sub">offen</div></div>';
+  html += '<div class="dash-tile online"><div class="label">Gelöste Chats</div><div class="value">'+resolvedChats.length+'</div><div class="sub">'+resRate+'% Lösungsrate</div></div>';
+  html += '<div class="dash-tile"><div class="label">Nachrichten</div><div class="value">'+allMessages.length+'</div><div class="sub">davon '+voiceMessages.length+' Voice</div></div>';
+  html += '<div class="dash-tile ai"><div class="label">KI-Antworten</div><div class="value">'+aiMessages.length+'</div><div class="sub">'+(aiMessages.length && allMessages.length ? Math.round(aiMessages.length/allMessages.length*100) : 0)+'% aller Msgs</div></div>';
+  html += '<div class="dash-tile accent"><div class="label">Wissens-Einträge</div><div class="value">'+wissenReady.length+'</div><div class="sub">ready · '+(allWissen.length-wissenReady.length)+' processing/error</div></div>';
+  html += '<div class="dash-tile"><div class="label">Katalog-Items</div><div class="value">'+KATALOG_RECORDS.length+'</div><div class="sub">Modelle/Steuerungen/FU/Komp</div></div>';
+  html += '</div>';
+  // Top Tags
+  html += '<div class="dash-section-title">Häufigste Themen (Chat-Tags)</div>';
+  if(topTags.length){
+    topTags.forEach(([name, count]) => {
+      const pct = Math.round(count / maxTagCount * 100);
+      html += '<div class="dash-bar-row"><div class="lbl">'+esc(name)+'</div><div class="bar"><div class="fill" style="width:'+pct+'%"></div></div><div class="num">'+count+'</div></div>';
+    });
+  } else { html += '<div style="color:var(--text-very-dim);font-style:italic;font-size:12px">Noch keine Tag-Daten</div>'; }
+  // Top User
+  html += '<div class="dash-section-title">Aktivste User (nach Nachrichten)</div>';
+  if(topUsers.length){
+    topUsers.forEach(u => {
+      const pct = Math.round(u.count / maxUserCount * 100);
+      html += '<div class="dash-bar-row"><div class="lbl">'+esc(u.name)+'</div><div class="bar"><div class="fill" style="width:'+pct+'%"></div></div><div class="num">'+u.count+'</div></div>';
+    });
+  } else { html += '<div style="color:var(--text-very-dim);font-style:italic;font-size:12px">Noch keine Aktivität</div>'; }
+  body.innerHTML = html;
 }
 
 async function forceHardReload(){
