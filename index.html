@@ -500,7 +500,7 @@ button{cursor:pointer;border:none;background:none}
     <div class="chat-body" id="chatBody"></div>
     <div class="chat-input">
       <button class="input-attach" id="chatAttachBtn" onclick="document.getElementById('chatFileInput').click()" title="Datei anhängen">+</button>
-      <input type="file" id="chatFileInput" accept="image/*,application/pdf,.doc,.docx,.txt" style="display:none" onchange="handleChatAttachment(this)">
+      <input type="file" id="chatFileInput" accept="image/*,video/*,application/pdf,.doc,.docx,.txt" style="display:none" onchange="handleChatAttachment(this)">
       <textarea class="input-field" id="chatInput" placeholder="Nachricht oder @KI fragen..." rows="1"></textarea>
       <button class="input-send" id="chatSendBtn" onclick="sendChatMessage()">→</button>
     </div>
@@ -586,7 +586,7 @@ button{cursor:pointer;border:none;background:none}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v1.5.1';
+const APP_VERSION = 'v1.5.2';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -1758,17 +1758,63 @@ function renderMessages(){
   });
 }
 
+async function compressImage(file, maxDim = 1920, quality = 0.82){
+  if(!file.type.startsWith('image/')) return file;
+  if(file.type === 'image/gif') return file; // GIF nicht komprimieren (Animation)
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = reject;
+      i.src = URL.createObjectURL(file);
+    });
+    let w = img.naturalWidth, h = img.naturalHeight;
+    if(Math.max(w, h) > maxDim){
+      const r = maxDim / Math.max(w, h);
+      w = Math.round(w * r); h = Math.round(h * r);
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    URL.revokeObjectURL(img.src);
+    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
+    if(!blob || blob.size >= file.size) return file;
+    return new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' });
+  } catch(e){ return file; }
+}
+
+async function compressVideoIfNeeded(file){
+  if(!file.type.startsWith('video/')) return file;
+  // Echte Re-Encoding ist im Browser ohne ffmpeg.wasm nicht praktikabel.
+  // Daher: User-Hinweis zur Aufnahme-Qualität, falls > 5 MB.
+  if(file.size <= 5 * 1024 * 1024) return file;
+  return file; // bleibt zu groß — wird unten abgewiesen
+}
+
 async function handleChatAttachment(input){
-  const file = input.files[0];
+  let file = input.files[0];
   input.value = '';
   if(!file || !STATE.currentChat) return;
-  if(file.size > 5 * 1024 * 1024){ toast('Max 5 MB pro Datei', 'error'); return; }
-
+  const isImg = file.type.startsWith('image/');
+  const isVid = file.type.startsWith('video/');
   const sendBtn = document.getElementById('chatSendBtn');
   const attachBtn = document.getElementById('chatAttachBtn');
   sendBtn.disabled = true; attachBtn.disabled = true;
-  toast('Lade Anhang hoch...');
   try {
+    if(isImg){
+      const before = file.size;
+      toast('Komprimiere Bild...');
+      file = await compressImage(file);
+      if(file.size < before) toast('Bild von '+fmtBytes(before)+' → '+fmtBytes(file.size), 'success');
+    } else if(isVid){
+      file = await compressVideoIfNeeded(file);
+    }
+    if(file.size > 5 * 1024 * 1024){
+      toast(isVid ? 'Video zu groß ('+fmtBytes(file.size)+'). Max 5 MB — kürzer aufnehmen oder mit niedrigerer Qualität.' : 'Datei zu groß ('+fmtBytes(file.size)+'). Max 5 MB.', 'error');
+      sendBtn.disabled = false; attachBtn.disabled = false;
+      return;
+    }
+    toast('Lade Anhang hoch...');
     const base64 = await new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result.split(',')[1]);
