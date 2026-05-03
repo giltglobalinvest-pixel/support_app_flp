@@ -22,6 +22,7 @@
   --rule:rgba(255,255,255,.06);--rule-strong:rgba(255,255,255,.12);
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+button,a,[onclick],.chip,.tab,.expertise-row,.kat-row,.wissen-item,.tech,.chat-row,.settings-action,.input-attach,.input-mic,.input-send,.action-button,.icon-btn,.modal-close,.back-btn,.profile-mini{touch-action:manipulation;cursor:pointer}
 html,body{background:var(--bg);color:var(--text);font-family:'Manrope',sans-serif;-webkit-font-smoothing:antialiased;height:100%;height:100dvh;overflow:hidden;overscroll-behavior:none}
 @media (max-width:768px){html,body{position:fixed;width:100%;top:0;left:0}}
 button,input,textarea{font-family:inherit;color:inherit}
@@ -618,7 +619,7 @@ button{cursor:pointer;border:none;background:none}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v1.6.1';
+const APP_VERSION = 'v1.6.2';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -2680,11 +2681,12 @@ async function checkForLatestVersion(){
 document.getElementById('versionTag').textContent = APP_VERSION;
 (async function init(){
   setLoadingLabel('App startet', APP_VERSION);
-  checkForLatestVersion(); // im Hintergrund, blockiert nicht (max 4s timeout)
   setLoadingLabel('Login wird geprüft', '');
   const ok = await tryAutoLogin();
   if(ok){ await afterLogin(); }
   else { showView('login'); }
+  // Version-Check erst NACHDEM App vollständig interaktiv ist (verhindert iOS-Touch-Hänger)
+  setTimeout(checkForLatestVersion, 3000);
 })();
 </script>
 </body>
