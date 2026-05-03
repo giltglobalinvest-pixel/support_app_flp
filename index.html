@@ -346,6 +346,28 @@ button{cursor:pointer;border:none;background:none}
 .kat-edit-row .save-btn{padding:8px 14px;background:var(--accent);color:var(--on-accent);border:none;border-radius:6px;font-weight:700;font-size:12px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.08em}
 .kat-edit-row .cancel-btn{padding:8px 14px;background:transparent;color:var(--text-dim);border:1px solid var(--rule-strong);border-radius:6px;font-weight:600;font-size:12px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.08em}
 
+.wissen-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 13px;background:var(--surface);border:1px solid var(--rule-strong);border-radius:8px;margin-bottom:5px;cursor:pointer;transition:background .15s}
+.wissen-item:active{background:var(--surface-strong)}
+.wissen-item .wissen-info{flex:1;min-width:0}
+.wissen-item .wissen-name{font-size:13.5px;font-weight:600}
+.wissen-item .wissen-meta{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+.wissen-item .wissen-count{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);font-weight:700;padding:3px 8px;border:1px solid var(--accent);border-radius:4px;flex-shrink:0}
+.wissen-item .wissen-count.zero{color:var(--text-very-dim);border-color:var(--rule-strong)}
+
+.wissen-doc{padding:10px 12px;background:var(--surface);border:1px solid var(--rule-strong);border-radius:8px;margin-bottom:5px}
+.wissen-doc .wissen-doc-title{font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.wissen-doc .wissen-doc-meta{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;margin-top:3px}
+.wissen-doc .wissen-doc-summary{font-size:12.5px;color:var(--text-dim);margin-top:6px;line-height:1.4;white-space:pre-wrap;max-height:120px;overflow-y:auto}
+.wissen-doc .wissen-doc-status{display:inline-block;padding:2px 7px;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.06em;font-weight:700}
+.wissen-doc .wissen-doc-status.ready{background:rgba(52,211,153,.10);color:var(--online)}
+.wissen-doc .wissen-doc-status.processing{background:rgba(192,132,252,.15);color:var(--ai)}
+.wissen-doc .wissen-doc-status.error{background:rgba(248,113,113,.15);color:var(--danger)}
+.wissen-doc .wissen-doc-del{background:transparent;border:1px solid rgba(248,113,113,.30);color:var(--danger);padding:3px 8px;border-radius:4px;font-size:11px;font-family:'JetBrains Mono',monospace}
+
+.upload-zone{border:1.5px dashed var(--rule-strong);border-radius:8px;padding:16px;text-align:center;color:var(--text-dim);font-size:13px;margin-bottom:10px;cursor:pointer;transition:all .15s}
+.upload-zone:hover,.upload-zone.over{border-color:var(--accent);color:var(--accent);background:rgba(56,189,248,.05)}
+.upload-zone .icon{font-size:24px;margin-bottom:6px}
+
 /* ===== TOAST ===== */
 .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(10,20,40,.95);border:1px solid var(--rule-strong);padding:10px 18px;border-radius:8px;font-size:13px;color:var(--text);z-index:300;animation:toastIn .25s;max-width:90vw;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.4)}
 .toast.error{border-color:var(--danger);color:var(--danger)}
@@ -401,6 +423,7 @@ button{cursor:pointer;border:none;background:none}
       <div class="progress-dot" id="ob-dot-1"></div>
       <div class="progress-dot" id="ob-dot-2"></div>
       <div class="progress-dot" id="ob-dot-3"></div>
+      <div class="progress-dot" id="ob-dot-4"></div>
     </div>
     <div class="onboard-content" id="onboardContent"></div>
     <div class="bottom-bar">
@@ -506,13 +529,49 @@ button{cursor:pointer;border:none;background:none}
   </div>
 </div>
 
+<!-- WISSENSBASIS MODAL -->
+<div class="modal" id="wissenModal">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <div class="modal-title" id="wissenModalTitle">Wissensbasis</div>
+      <button class="modal-close" onclick="closeModal('wissenModal')">×</button>
+    </div>
+    <div class="modal-body" id="wissenModalBody"></div>
+  </div>
+</div>
+
+<!-- WISSEN-ITEM-DETAIL MODAL (PDFs für ein Item) -->
+<div class="modal" id="wissenItemModal">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <div class="modal-title" id="wissenItemTitle">Item</div>
+      <button class="modal-close" onclick="closeModal('wissenItemModal')">×</button>
+    </div>
+    <div class="modal-body" id="wissenItemBody"></div>
+  </div>
+</div>
+
+<!-- PRE-CHAT KONTEXT MODAL -->
+<div class="modal" id="preChatModal">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <div class="modal-title">Worum geht's?</div>
+      <button class="modal-close" onclick="cancelPreChat()">×</button>
+    </div>
+    <div class="modal-body" id="preChatBody"></div>
+    <div class="modal-footer">
+      <button class="action-button primary" onclick="confirmPreChat()">Chat starten →</button>
+    </div>
+  </div>
+</div>
+
 <div class="version-tag" id="versionTag"></div>
 
 <script>
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v1.4';
+const APP_VERSION = 'v1.5';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -534,36 +593,49 @@ const SEED_MODELS = [
 const SEED_CONTROLS = [
   {name:'TMS9000', meta:'STEUERUNG'},
   {name:'Kollmorgen', meta:'STEUERUNG'},
-  {name:'Ziehl-Abegg', meta:'FU + STEUERUNG'},
   {name:'Böhnke+Partner', meta:'STEUERUNG'},
   {name:'New Lift', meta:'STEUERUNG'},
 ];
+const SEED_FREQUENZUMRICHTER = [
+  {name:'Ziehl-Abegg ZAdyn4C', meta:'FU'},
+  {name:'KEB Combivert F5', meta:'FU'},
+  {name:'Yaskawa L1000A', meta:'FU AUFZUG'},
+  {name:'Magnetek HPV900', meta:'FU AUFZUG'},
+];
 const SEED_COMPONENTS = [
   {name:'Türsysteme', meta:'KOMPONENTE'},
-  {name:'Frequenzumrichter', meta:'KOMPONENTE'},
   {name:'Hydraulik', meta:'KOMPONENTE'},
   {name:'Notrufanlagen', meta:'KOMPONENTE'},
   {name:'Sicherheitskreis', meta:'KOMPONENTE'},
 ];
 let MODELS = [...SEED_MODELS];
 let CONTROLS = [...SEED_CONTROLS];
+let FREQUENZUMRICHTER = [...SEED_FREQUENZUMRICHTER];
 let COMPONENTS = [...SEED_COMPONENTS];
 let KATALOG_RECORDS = []; // raw Airtable records für Admin-Edit
+const CATEGORIES = [
+  { key:'model', label:'Aufzugsmodell', plural:'Aufzugsmodelle', getList:()=>MODELS },
+  { key:'control', label:'Steuerung', plural:'Steuerungen', getList:()=>CONTROLS },
+  { key:'frequenzumrichter', label:'Frequenzumrichter', plural:'Frequenzumrichter', getList:()=>FREQUENZUMRICHTER },
+  { key:'component', label:'Komponente', plural:'Komponenten', getList:()=>COMPONENTS },
+];
 
 // ============================================================
 // STATE
 // ============================================================
 let STATE = {
-  myProfile: null,        // TechnikerProfile record
-  techProfiles: [],       // alle TechnikerProfiles
-  chats: [],              // alle Chats für mich
-  currentChat: null,      // aktiver Chat
-  currentMessages: [],    // Messages des aktiven Chats
+  myProfile: null,
+  techProfiles: [],
+  chats: [],
+  currentChat: null,
+  currentMessages: [],
   multiSelect: false,
   selected: new Set(),
-  filterModal: { models: new Set(), controls: new Set(), components: new Set(), online: false },
+  filterModal: { models: new Set(), controls: new Set(), frequenzumrichter: new Set(), components: new Set(), online: false },
   filtersActive: false,
   activeTab: 'konstellation',
+  wissen: [],
+  pendingChatContext: null, // {tags: [...]} während Pre-Question
 };
 
 // ============================================================
@@ -740,12 +812,14 @@ async function ensureAllTables(){
     { name:'name', type:'singleLineText' },
     { name:'models', type:'multilineText' },
     { name:'controls', type:'multilineText' },
+    { name:'frequenzumrichter', type:'multilineText' },
     { name:'components', type:'multilineText' },
     { name:'last_seen', type:'singleLineText' },
     { name:'onboarding_done', type:'checkbox', options:{ icon:'check', color:'greenBright' } },
     { name:'language', type:'singleLineText' },
   ]);
   await ensureField('TechnikerProfile', 'language', 'singleLineText');
+  await ensureField('TechnikerProfile', 'frequenzumrichter', 'multilineText');
   await ensureTable('Chats', [
     { name:'chat_id', type:'singleLineText' },
     { name:'title', type:'singleLineText' },
@@ -755,7 +829,9 @@ async function ensureAllTables(){
     { name:'created', type:'singleLineText' },
     { name:'last_msg', type:'singleLineText' },
     { name:'last_msg_at', type:'singleLineText' },
+    { name:'context_tags', type:'multilineText' },
   ]);
+  await ensureField('Chats', 'context_tags', 'multilineText');
   await ensureTable('Messages', [
     { name:'msg_id', type:'singleLineText' },
     { name:'chat_id', type:'singleLineText' },
@@ -775,6 +851,17 @@ async function ensureAllTables(){
     { name:'category', type:'singleLineText' },
     { name:'sort_order', type:'number', options:{ precision:0 } },
   ]);
+  await ensureTable('Wissen', [
+    { name:'title', type:'singleLineText' },
+    { name:'category', type:'singleLineText' },
+    { name:'item_name', type:'singleLineText' },
+    { name:'pdf', type:'multipleAttachments' },
+    { name:'summary', type:'multilineText' },
+    { name:'extract', type:'multilineText' },
+    { name:'uploaded_by', type:'singleLineText' },
+    { name:'uploaded_at', type:'singleLineText' },
+    { name:'status', type:'singleLineText' },
+  ]);
 }
 
 async function loadKatalog(){
@@ -786,12 +873,20 @@ async function loadKatalog(){
     KATALOG_RECORDS = await atRead('Katalog');
   }
   applyKatalog();
+  // Migration: Falls FU noch nicht im Katalog → seeden
+  await ensureFrequenzumrichterSeed();
+}
+
+async function loadWissen(){
+  try { STATE.wissen = await atRead('Wissen'); }
+  catch(e){ STATE.wissen = []; }
 }
 
 async function seedKatalog(){
   const seed = [
     ...SEED_MODELS.map((x,i)=>({...x, category:'model', sort_order:i})),
     ...SEED_CONTROLS.map((x,i)=>({...x, category:'control', sort_order:i})),
+    ...SEED_FREQUENZUMRICHTER.map((x,i)=>({...x, category:'frequenzumrichter', sort_order:i})),
     ...SEED_COMPONENTS.map((x,i)=>({...x, category:'component', sort_order:i})),
   ];
   for(const item of seed){
@@ -799,11 +894,22 @@ async function seedKatalog(){
   }
 }
 
+// Wenn Katalog existiert aber keine Frequenzumrichter drin → seed nur die FU-Defaults
+async function ensureFrequenzumrichterSeed(){
+  if(KATALOG_RECORDS.find(r => r.fields.category === 'frequenzumrichter')) return;
+  for(const item of SEED_FREQUENZUMRICHTER){
+    try { await atWrite('Katalog', { ...item, category:'frequenzumrichter', sort_order: SEED_FREQUENZUMRICHTER.indexOf(item) }); } catch(e){}
+  }
+  KATALOG_RECORDS = await atRead('Katalog');
+  applyKatalog();
+}
+
 function applyKatalog(){
   const sortFn = (a,b) => (a.fields.sort_order||0) - (b.fields.sort_order||0) || (a.fields.name||'').localeCompare(b.fields.name||'');
   const filterCat = (cat) => KATALOG_RECORDS.filter(r => r.fields.category === cat).sort(sortFn).map(r => ({ name: r.fields.name || '', meta: r.fields.meta || '' }));
   MODELS = filterCat('model');
   CONTROLS = filterCat('control');
+  FREQUENZUMRICHTER = filterCat('frequenzumrichter');
   COMPONENTS = filterCat('component');
 }
 
@@ -889,6 +995,7 @@ async function loadOrCreateMyProfile(){
       name: APP_KEYS.user.name || key,
       models: '[]',
       controls: '[]',
+      frequenzumrichter: '[]',
       components: '[]',
       last_seen: new Date().toISOString(),
       onboarding_done: false,
@@ -910,6 +1017,7 @@ async function afterOnboarding(){
 
 async function loadHomeData(){
   STATE.techProfiles = await atRead('TechnikerProfile');
+  await loadWissen();
   // Eigene Chats
   const allChats = await atRead('Chats');
   STATE.chats = allChats.filter(c => {
@@ -922,42 +1030,48 @@ async function loadHomeData(){
 // ONBOARDING
 // ============================================================
 let OB_STEP = 0;
-let OB_DATA = { models: new Set(), controls: new Set(), components: new Set() };
+let OB_DATA = { models: new Set(), controls: new Set(), frequenzumrichter: new Set(), components: new Set() };
+const OB_TOTAL = 5;
+const OB_STEPS = [
+  { key:'models', label:'Welche Modelle kennst du?', hint:'Mehrfachauswahl. Bestimmt, bei welchen Anfragen du gefunden wirst.', cat:'model' },
+  { key:'controls', label:'Welche Steuerungen?', hint:'Mehrfachauswahl möglich.', cat:'control' },
+  { key:'frequenzumrichter', label:'Welche Frequenzumrichter?', hint:'Mehrfachauswahl. Neue FU-Modelle kannst du unten hinzufügen.', cat:'frequenzumrichter' },
+  { key:'components', label:'Spezialisierungen?', hint:'Komponenten in denen du tief drin bist.', cat:'component' },
+];
 
 function onboardInit(){
   OB_STEP = 0;
   if(STATE.myProfile){
     OB_DATA.models = new Set(parseList(STATE.myProfile.fields.models));
     OB_DATA.controls = new Set(parseList(STATE.myProfile.fields.controls));
+    OB_DATA.frequenzumrichter = new Set(parseList(STATE.myProfile.fields.frequenzumrichter));
     OB_DATA.components = new Set(parseList(STATE.myProfile.fields.components));
   } else {
-    OB_DATA = { models: new Set(), controls: new Set(), components: new Set() };
+    OB_DATA = { models: new Set(), controls: new Set(), frequenzumrichter: new Set(), components: new Set() };
   }
   onboardRender();
 }
 function onboardRender(){
-  for(let i=0;i<4;i++){
+  for(let i=0;i<OB_TOTAL;i++){
     const dot = document.getElementById('ob-dot-'+i);
-    dot.className = 'progress-dot' + (i<OB_STEP?' done':(i===OB_STEP?' active':''));
+    if(dot) dot.className = 'progress-dot' + (i<OB_STEP?' done':(i===OB_STEP?' active':''));
   }
   document.getElementById('obBackBtn').style.display = OB_STEP>0 ? 'flex' : 'none';
-  // Abbrechen-Button nur wenn User schon onboarded ist (Edit-Modus aus Settings)
   const canAbort = STATE.myProfile?.fields.onboarding_done === true;
   document.getElementById('obAbortBtn').style.display = canAbort ? 'inline-flex' : 'none';
-  document.getElementById('obNextBtn').textContent = OB_STEP===3 ? 'Loslegen →' : 'Weiter →';
+  document.getElementById('obNextBtn').textContent = OB_STEP===OB_TOTAL-1 ? 'Loslegen →' : 'Weiter →';
   const c = document.getElementById('onboardContent');
-  if(OB_STEP===0){
-    c.innerHTML = renderOnboardStep('Schritt 01 / 04','Welche Modelle kennst du?','Mehrfachauswahl. Bestimmt, bei welchen Anfragen du gefunden wirst.', MODELS, OB_DATA.models, 'models');
-  } else if(OB_STEP===1){
-    c.innerHTML = renderOnboardStep('Schritt 02 / 04','Welche Steuerungen?','Mehrfachauswahl möglich.', CONTROLS, OB_DATA.controls, 'controls');
-  } else if(OB_STEP===2){
-    c.innerHTML = renderOnboardStep('Schritt 03 / 04','Spezialisierungen?','Komponenten in denen du tief drin bist.', COMPONENTS, OB_DATA.components, 'components');
+  if(OB_STEP < OB_STEPS.length){
+    const step = OB_STEPS[OB_STEP];
+    const list = CATEGORIES.find(x => x.key === step.cat).getList();
+    const stepLabel = 'Schritt ' + String(OB_STEP+1).padStart(2,'0') + ' / ' + String(OB_TOTAL).padStart(2,'0');
+    c.innerHTML = renderOnboardStep(stepLabel, step.label, step.hint, list, OB_DATA[step.key], step.key, step.cat);
   } else {
     c.innerHTML = renderOnboardSummary();
   }
 }
 
-function renderOnboardStep(step, q, hint, list, set, key){
+function renderOnboardStep(step, q, hint, list, set, key, cat){
   let html = '<div class="onboard-step">'+step+'</div>';
   html += '<div class="onboard-question">'+q+'</div>';
   html += '<div class="onboard-hint">'+hint+'</div>';
@@ -965,21 +1079,39 @@ function renderOnboardStep(step, q, hint, list, set, key){
   list.forEach(item=>{
     const sel = set.has(item.name);
     html += '<button class="expertise-row '+(sel?'selected':'')+'" onclick="toggleExpertise(\''+key+'\',\''+esc(item.name)+'\')">';
-    html += '<span class="label"><span>'+item.name+'</span><span class="meta">'+item.meta+'</span></span>';
+    html += '<span class="label"><span>'+esc(item.name)+'</span><span class="meta">'+esc(item.meta||'')+'</span></span>';
     html += '<span class="check">'+(sel?'✓':'')+'</span>';
     html += '</button>';
   });
+  // Inline-Add: für jede Kategorie kann der User neue Items anlegen
+  html += '<button class="expertise-row" style="border-style:dashed;justify-content:center;color:var(--accent);font-weight:600" onclick="onboardAddItem(\''+cat+'\',\''+key+'\')">+ Eigenes hinzufügen</button>';
   html += '</div>';
   return html;
 }
+
+async function onboardAddItem(cat, key){
+  const name = (prompt('Neues Item für "' + cat + '":') || '').trim();
+  if(!name) return;
+  const meta = (prompt('Kurz-Meta (z.B. STEUERUNG, FU AUFZUG, optional):') || '').trim();
+  try {
+    const maxSort = Math.max(0, ...KATALOG_RECORDS.filter(r => r.fields.category === cat).map(r => r.fields.sort_order||0));
+    await atWrite('Katalog', { name, meta, category: cat, sort_order: maxSort + 1 });
+    KATALOG_RECORDS = await atRead('Katalog');
+    applyKatalog();
+    OB_DATA[key].add(name);
+    onboardRender();
+    toast('"'+name+'" hinzugefügt', 'success');
+  } catch(e){ toast(e.message, 'error'); }
+}
 function renderOnboardSummary(){
-  const fmt = (s)=> s.size ? Array.from(s).join(' · ') : '<span class="summary-empty">— nichts gewählt</span>';
+  const fmt = (s)=> s.size ? esc(Array.from(s).join(' · ')) : '<span class="summary-empty">— nichts gewählt</span>';
   return `
-    <div class="onboard-step">Schritt 04 / 04</div>
+    <div class="onboard-step">Schritt 05 / 05</div>
     <div class="onboard-question">Deine Expertise</div>
     <div class="onboard-hint">So tauchst du in der Konstellation auf. Du kannst das jederzeit in den Einstellungen ändern.</div>
     <div class="summary-block"><div class="summary-label">Modelle</div><div class="summary-value">${fmt(OB_DATA.models)}</div></div>
     <div class="summary-block"><div class="summary-label">Steuerungen</div><div class="summary-value">${fmt(OB_DATA.controls)}</div></div>
+    <div class="summary-block"><div class="summary-label">Frequenzumrichter</div><div class="summary-value">${fmt(OB_DATA.frequenzumrichter)}</div></div>
     <div class="summary-block"><div class="summary-label">Komponenten</div><div class="summary-value">${fmt(OB_DATA.components)}</div></div>
   `;
 }
@@ -996,7 +1128,7 @@ function onboardAbort(){
   showView('home');
 }
 async function onboardNext(){
-  if(OB_STEP<3){ OB_STEP++; onboardRender(); return; }
+  if(OB_STEP < OB_TOTAL-1){ OB_STEP++; onboardRender(); return; }
   // Speichern
   const btn = document.getElementById('obNextBtn');
   btn.disabled = true; btn.innerHTML = '<span class="loader"></span> Speichere...';
@@ -1004,10 +1136,10 @@ async function onboardNext(){
     await atUpdate('TechnikerProfile', STATE.myProfile.id, {
       models: JSON.stringify(Array.from(OB_DATA.models)),
       controls: JSON.stringify(Array.from(OB_DATA.controls)),
+      frequenzumrichter: JSON.stringify(Array.from(OB_DATA.frequenzumrichter)),
       components: JSON.stringify(Array.from(OB_DATA.components)),
       onboarding_done: true,
     });
-    // Reload
     const recs = await atRead('TechnikerProfile', "{api_key}='"+APP_KEYS.user.api_key+"'");
     STATE.myProfile = recs[0];
     OB_STEP = 0;
@@ -1074,7 +1206,7 @@ function renderFilterStrip(){
 function quickFilter(type, val){
   if(type==='online') STATE.filterModal.online = !STATE.filterModal.online;
   else {
-    const setKey = type==='model'?'models':type==='control'?'controls':'components';
+    const setKey = type==='model'?'models':type==='control'?'controls':type==='fu'?'frequenzumrichter':'components';
     if(STATE.filterModal[setKey].has(val)) STATE.filterModal[setKey].delete(val);
     else STATE.filterModal[setKey].add(val);
   }
@@ -1088,13 +1220,14 @@ function isOnline(profile){
   return (Date.now() - dt) < 5*60*1000;
 }
 function profileMatches(profile){
-  // Filter: alle Sets müssen mind. 1 Übereinstimmung haben (AND zwischen Gruppen, OR innerhalb)
   if(STATE.filterModal.online && !isOnline(profile)) return false;
   const m = parseList(profile.fields.models);
   const c = parseList(profile.fields.controls);
+  const fu = parseList(profile.fields.frequenzumrichter);
   const k = parseList(profile.fields.components);
   if(STATE.filterModal.models.size && !Array.from(STATE.filterModal.models).some(x=>m.includes(x))) return false;
   if(STATE.filterModal.controls.size && !Array.from(STATE.filterModal.controls).some(x=>c.includes(x))) return false;
+  if(STATE.filterModal.frequenzumrichter.size && !Array.from(STATE.filterModal.frequenzumrichter).some(x=>fu.includes(x))) return false;
   if(STATE.filterModal.components.size && !Array.from(STATE.filterModal.components).some(x=>k.includes(x))) return false;
   return true;
 }
@@ -1255,19 +1388,25 @@ async function startAiOnlyChat(){
     return ps.length === 1 && ps[0] === myKey && c.fields.status !== 'resolved';
   });
   if(existing){ openChat(existing); return; }
+  showPreChat(async (tags) => { await actuallyStartAiOnlyChat(tags); });
+}
 
+async function actuallyStartAiOnlyChat(tags){
+  const myKey = APP_KEYS.user.api_key;
   toast('KI-Chat wird gestartet...');
   try {
     const created = new Date().toISOString();
+    const title = generateChatTitleFromTags(tags) || 'KI · SUPPORT';
     const chatRecord = await atWrite('Chats', {
       chat_id: 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
-      title: 'KI · SUPPORT',
+      title,
       participants: JSON.stringify([myKey]),
       creator_key: myKey,
       status: 'aktiv',
       created,
       last_msg: '',
       last_msg_at: created,
+      context_tags: JSON.stringify(tags || []),
     });
     await atWrite('Messages', {
       msg_id: 'm_' + Date.now(),
@@ -1303,6 +1442,7 @@ function renderFilterModalBody(){
   let html = '';
   html += renderFilterGroup('Aufzugsmodell', MODELS, STATE.filterModal.models, 'models');
   html += renderFilterGroup('Steuerung', CONTROLS, STATE.filterModal.controls, 'controls');
+  html += renderFilterGroup('Frequenzumrichter', FREQUENZUMRICHTER, STATE.filterModal.frequenzumrichter, 'frequenzumrichter');
   html += renderFilterGroup('Komponente', COMPONENTS, STATE.filterModal.components, 'components');
   html += '<div class="filter-group"><div class="filter-group-title">Verfügbarkeit</div><div class="chip-set"><button class="chip '+(STATE.filterModal.online?'selected':'')+'" onclick="toggleFilterOnline()">Jetzt online</button></div></div>';
   body.innerHTML = html;
@@ -1340,13 +1480,16 @@ function applyFilters(){
 // ============================================================
 async function startChatWithSelected(){
   if(STATE.selected.size === 0) return;
+  showPreChat(async (tags) => { await actuallyStartChat(tags); });
+}
+
+async function actuallyStartChat(tags){
   const participants = Array.from(STATE.selected).map(id => {
     return STATE.techProfiles.find(p => p.id === id);
   }).filter(Boolean);
   if(participants.length === 0) return;
 
-  // Auto-Title generieren (nimm gemeinsame Modelle/Steuerungen)
-  const title = generateChatTitle(participants);
+  const title = generateChatTitleFromTags(tags) || generateChatTitle(participants);
   const allKeys = [APP_KEYS.user.api_key, ...participants.map(p => p.fields.api_key)];
 
   toast('Chat wird erstellt...');
@@ -1360,6 +1503,7 @@ async function startChatWithSelected(){
       created: new Date().toISOString(),
       last_msg: '',
       last_msg_at: new Date().toISOString(),
+      context_tags: JSON.stringify(tags || []),
     });
     // System-Message
     const names = participants.map(p => p.fields.name || p.fields.api_key).join(', ');
@@ -1389,6 +1533,64 @@ function generateChatTitle(participants){
   all.forEach(p => parseList(p.fields.models).forEach(m => modelCount[m] = (modelCount[m]||0)+1));
   const topModel = Object.keys(modelCount).sort((a,b)=>modelCount[b]-modelCount[a])[0];
   return (topModel ? topModel.toUpperCase() : 'TECHNIKER') + ' · SUPPORT';
+}
+
+function generateChatTitleFromTags(tags){
+  if(!tags || !tags.length) return null;
+  const first = tags[0];
+  if(!first) return null;
+  return (first.name || '').toUpperCase() + ' · SUPPORT';
+}
+
+// ============================================================
+// PRE-CHAT MODAL — fragt vorm Chat-Start: welche Modelle/Steuerungen/FU
+// ============================================================
+let PRE_CHAT_TAGS = []; // {category, name}
+let PRE_CHAT_CB = null;
+
+function showPreChat(onConfirm){
+  PRE_CHAT_TAGS = [];
+  PRE_CHAT_CB = onConfirm;
+  renderPreChat();
+  openModal('preChatModal');
+}
+
+function renderPreChat(){
+  const body = document.getElementById('preChatBody');
+  let html = '<div style="font-size:13px;color:var(--text-dim);margin-bottom:14px;line-height:1.4">Wähle worum es im Chat geht — die KI nutzt dann gezielt das passende Wissen aus den hochgeladenen Dokumenten.</div>';
+  CATEGORIES.forEach(cat => {
+    const items = cat.getList();
+    if(!items.length) return;
+    html += '<div class="filter-group"><div class="filter-group-title">'+cat.plural+'</div><div class="chip-set">';
+    items.forEach(i => {
+      const sel = PRE_CHAT_TAGS.some(t => t.category === cat.key && t.name === i.name);
+      html += '<button class="chip '+(sel?'selected':'')+'" onclick="togglePreChatTag(\''+cat.key+'\',\''+esc(i.name)+'\')">'+esc(i.name)+'</button>';
+    });
+    html += '</div></div>';
+  });
+  body.innerHTML = html;
+}
+
+function togglePreChatTag(category, name){
+  const idx = PRE_CHAT_TAGS.findIndex(t => t.category === category && t.name === name);
+  if(idx >= 0) PRE_CHAT_TAGS.splice(idx, 1);
+  else PRE_CHAT_TAGS.push({ category, name });
+  renderPreChat();
+}
+
+function cancelPreChat(){
+  closeModal('preChatModal');
+  PRE_CHAT_TAGS = [];
+  PRE_CHAT_CB = null;
+}
+
+async function confirmPreChat(){
+  closeModal('preChatModal');
+  const cb = PRE_CHAT_CB;
+  const tags = [...PRE_CHAT_TAGS];
+  PRE_CHAT_CB = null;
+  PRE_CHAT_TAGS = [];
+  if(cb) await cb(tags);
 }
 
 // ============================================================
@@ -1584,10 +1786,20 @@ async function callAI(triggerText){
     }).join('\n');
 
     const replyLang = LANG_NAMES[myLang()] || 'Deutsch';
+    let knowledgeBlock = '';
+    try {
+      const tags = JSON.parse(STATE.currentChat.fields.context_tags || '[]');
+      if(tags.length){
+        const relevant = STATE.wissen.filter(w => tags.some(t => t.category === w.fields.category && t.name === w.fields.item_name) && w.fields.summary);
+        if(relevant.length){
+          knowledgeBlock = '\n\nWISSENSQUELLEN (aus hochgeladenen Service-Dokumenten):\n' + relevant.map(w => '--- '+(w.fields.item_name||'?')+' / '+(w.fields.title||'Doku')+' ---\n'+w.fields.summary).join('\n\n') + '\n\nNutze diese Quellen primär. Zitiere bei Bedarf den Dokumentnamen.';
+        }
+      }
+    } catch(e){}
     const systemPrompt = `Du bist die FLP Supporter KI, ein technischer Assistent für Aufzugstechniker. Antworte präzise, kurz, im Techniker-Stil — kein Lehrbuch. Wenn du etwas nicht weißt, sag es ehrlich und frage nach. Strukturiere bei Bedarf mit kurzen Listen oder nummerierten Schritten. Antworte auf ${replyLang}.
 
 Chat-Titel: ${STATE.currentChat.fields.title || ''}
-Teilnehmer-Profile (Modelle/Steuerungen): siehe Chat-Verlauf.`;
+Teilnehmer-Profile (Modelle/Steuerungen): siehe Chat-Verlauf.${knowledgeBlock}`;
 
     const userMessage = `Chat-Verlauf:\n${context}\n\nDie KI wurde gerade direkt angesprochen. Antworte auf die letzte Nachricht "${triggerText}" im Kontext des Chats. Halte dich kurz (max. 6 Sätze).`;
 
@@ -1705,10 +1917,12 @@ function openSettings(){
     <div class="settings-row"><div class="settings-label">User-Key</div><div class="settings-value">${esc(u.api_key)}</div></div>
     <div class="settings-row"><div class="settings-label">Modelle</div><div class="settings-value">${esc(parseList(p.models).join(', ') || '—')}</div></div>
     <div class="settings-row"><div class="settings-label">Steuerungen</div><div class="settings-value">${esc(parseList(p.controls).join(', ') || '—')}</div></div>
+    <div class="settings-row"><div class="settings-label">Frequenzumrichter</div><div class="settings-value">${esc(parseList(p.frequenzumrichter).join(', ') || '—')}</div></div>
     <div class="settings-row"><div class="settings-label">Komponenten</div><div class="settings-value">${esc(parseList(p.components).join(', ') || '—')}</div></div>
     <div class="settings-row"><div class="settings-label">Sprache</div><div style="display:flex;gap:6px">${LANGUAGES.map(l => '<button class="settings-action" style="'+(myLang()===l.code?'background:var(--accent);color:var(--on-accent);border-color:var(--accent)':'')+'" onclick="setMyLanguage(\''+l.code+'\').then(()=>openSettings())">'+l.label+'</button>').join('')}</div></div>
     <div class="settings-row"><div class="settings-label">Expertise ändern</div><button class="settings-action" onclick="reopenOnboarding()">Bearbeiten</button></div>
-    ${isAdmin() ? '<div class="settings-row"><div><div class="settings-label">Katalog verwalten</div><div class="settings-value" style="margin-top:3px">Modelle · Steuerungen · Komponenten</div></div><button class="settings-action" onclick="openKatalogModal()">Öffnen</button></div>' : ''}
+    <div class="settings-row"><div><div class="settings-label">Wissensbasis</div><div class="settings-value" style="margin-top:3px">PDFs hochladen · KI-Analyse</div></div><button class="settings-action" onclick="closeModal('settingsModal');openWissenModal()">Öffnen</button></div>
+    ${isAdmin() ? '<div class="settings-row"><div><div class="settings-label">Katalog verwalten</div><div class="settings-value" style="margin-top:3px">Modelle · Steuerungen · FU · Komponenten</div></div><button class="settings-action" onclick="closeModal(\'settingsModal\');openKatalogModal()">Öffnen</button></div>' : ''}
     <div class="settings-row"><div class="settings-label">Logout</div><button class="settings-action danger" onclick="logout()">Abmelden</button></div>
     <div class="settings-row"><div class="settings-label">Version</div><div class="settings-value">${APP_VERSION}</div></div>
   `;
@@ -1738,6 +1952,7 @@ function renderKatalogModal(){
   const cats = [
     { key:'model', label:'Aufzugsmodelle' },
     { key:'control', label:'Steuerungen' },
+    { key:'frequenzumrichter', label:'Frequenzumrichter' },
     { key:'component', label:'Komponenten' },
   ];
   let html = '';
@@ -1806,6 +2021,160 @@ async function katalogSave(idAttr, category, recordId){
     if(STATE.activeTab === 'konstellation'){ renderFilterStrip(); }
     toast('Gespeichert', 'success');
   } catch(e){ toast(e.message || 'Fehler beim Speichern', 'error'); }
+}
+
+// ============================================================
+// WISSENSBASIS — PDF-Upload + KI-Analyse
+// ============================================================
+function openWissenModal(){
+  renderWissenModal();
+  openModal('wissenModal');
+}
+
+function renderWissenModal(){
+  const body = document.getElementById('wissenModalBody');
+  let html = '';
+  CATEGORIES.forEach(cat => {
+    const items = cat.getList();
+    if(items.length === 0){
+      html += '<div class="kat-section"><div class="kat-section-title">'+cat.plural+'</div><div style="color:var(--text-very-dim);font-size:12px;font-style:italic">Keine Einträge</div></div>';
+      return;
+    }
+    html += '<div class="kat-section"><div class="kat-section-title">'+cat.plural+'</div>';
+    items.forEach(item => {
+      const docs = STATE.wissen.filter(w => w.fields.category === cat.key && w.fields.item_name === item.name);
+      const cls = docs.length > 0 ? '' : 'zero';
+      html += '<div class="wissen-item" onclick="openWissenItem(\''+cat.key+'\',\''+esc(item.name)+'\')">';
+      html += '<div class="wissen-info"><div class="wissen-name">'+esc(item.name)+'</div><div class="wissen-meta">'+esc(item.meta||'—')+'</div></div>';
+      html += '<div class="wissen-count '+cls+'">'+docs.length+' PDF'+(docs.length===1?'':'s')+'</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  });
+  body.innerHTML = html;
+}
+
+let WISSEN_CURRENT = null; // {category, itemName}
+
+function openWissenItem(category, itemName){
+  WISSEN_CURRENT = { category, itemName };
+  document.getElementById('wissenItemTitle').textContent = itemName;
+  renderWissenItem();
+  openModal('wissenItemModal');
+}
+
+function renderWissenItem(){
+  if(!WISSEN_CURRENT) return;
+  const body = document.getElementById('wissenItemBody');
+  const docs = STATE.wissen.filter(w => w.fields.category === WISSEN_CURRENT.category && w.fields.item_name === WISSEN_CURRENT.itemName);
+  let html = '';
+  html += '<div class="upload-zone" onclick="document.getElementById(\'wissenFileInput\').click()"><div class="icon">📄</div><div>PDF hier hochladen<br><span style="font-size:11px">(max 5 MB · wird automatisch via KI analysiert)</span></div></div>';
+  html += '<input type="file" id="wissenFileInput" accept="application/pdf" style="display:none" onchange="handleWissenUpload(this)">';
+  if(docs.length === 0){
+    html += '<div style="color:var(--text-very-dim);font-size:12px;font-style:italic;text-align:center;padding:14px 0">Noch keine Dokumente</div>';
+  } else {
+    docs.forEach(d => {
+      const f = d.fields;
+      const status = f.status || 'ready';
+      const statusLabel = status === 'processing' ? 'WIRD ANALYSIERT' : status === 'error' ? 'FEHLER' : 'BEREIT';
+      const fileUrl = (f.pdf && f.pdf[0]) ? f.pdf[0].url : '';
+      html += '<div class="wissen-doc">';
+      html += '<div class="wissen-doc-title"><span>'+esc(f.title || 'Dokument')+'</span><span class="wissen-doc-status '+status+'">'+statusLabel+'</span></div>';
+      html += '<div class="wissen-doc-meta">Hochgeladen: '+esc(new Date(f.uploaded_at||Date.now()).toLocaleDateString('de-DE'))+' · von '+esc(f.uploaded_by||'?')+(fileUrl?' · <a href="'+esc(fileUrl)+'" target="_blank" style="color:var(--accent)">Öffnen ↗</a>':'')+'</div>';
+      if(f.summary){ html += '<div class="wissen-doc-summary">'+esc(f.summary)+'</div>'; }
+      html += '<div style="margin-top:8px;display:flex;gap:5px;justify-content:flex-end"><button class="wissen-doc-del" onclick="deleteWissen(\''+d.id+'\')">Löschen</button></div>';
+      html += '</div>';
+    });
+  }
+  body.innerHTML = html;
+}
+
+async function handleWissenUpload(input){
+  const file = input.files[0];
+  input.value = '';
+  if(!file) return;
+  if(file.size > 5 * 1024 * 1024){ toast('Max 5 MB pro Datei', 'error'); return; }
+  if(file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')){ toast('Nur PDF', 'error'); return; }
+  toast('Lade hoch...');
+  try {
+    // Base64 lesen
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    // Wissen-Record anlegen
+    const created = new Date().toISOString();
+    const rec = await atWrite('Wissen', {
+      title: file.name,
+      category: WISSEN_CURRENT.category,
+      item_name: WISSEN_CURRENT.itemName,
+      uploaded_by: APP_KEYS.user.name || APP_KEYS.user.api_key,
+      uploaded_at: created,
+      status: 'processing',
+    });
+    // PDF anhängen via Attachment-Upload
+    const upRes = await fetch(
+      'https://content.airtable.com/v0/' + APP_CONFIG.APP_BASE_ID + '/' + rec.id + '/pdf/uploadAttachment',
+      { method:'POST',
+        headers:{'Authorization':'Bearer '+APP_KEYS.airtableWriteKey,'Content-Type':'application/json'},
+        body: JSON.stringify({ contentType:'application/pdf', file: base64, filename: file.name }) }
+    );
+    if(!upRes.ok) throw new Error('Upload zu Airtable fehlgeschlagen');
+    toast('Hochgeladen — KI-Analyse läuft...', 'success');
+    await loadWissen();
+    renderWissenItem();
+    // KI-Analyse im Hintergrund
+    analyzeWissenPdf(rec.id, base64).then(()=>{
+      loadWissen().then(renderWissenItem);
+    }).catch(e => {
+      atUpdate('Wissen', rec.id, { status: 'error', summary: 'Analyse-Fehler: ' + (e.message||'unknown') }).catch(()=>{});
+    });
+  } catch(e){ toast(e.message, 'error'); }
+}
+
+async function analyzeWissenPdf(recordId, base64){
+  if(!APP_KEYS.anthropicKey) throw new Error('Kein Anthropic-Key');
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST',
+    headers:{
+      'x-api-key': APP_KEYS.anthropicKey,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true',
+      'Content-Type':'application/json'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 2000,
+      messages: [{
+        role:'user',
+        content: [
+          { type:'document', source:{ type:'base64', media_type:'application/pdf', data: base64 } },
+          { type:'text', text: 'Du analysierst ein technisches Dokument für Aufzugstechniker (Service-Handbuch, Fehlercode-Liste, Schaltplan, Doku, etc.). Erstelle eine kompakte, struk­turierte Zusammenfassung in Deutsch mit:\n1. Was ist das für ein Dokument?\n2. Welche Modelle/Geräte/Versionen werden behandelt?\n3. Wichtigste Fehlercodes mit Bedeutung (falls vorhanden)\n4. Häufige Symptome → Lösungen (falls vorhanden)\n5. Sicherheitshinweise (kurz)\n6. Sonstige nützliche Service-Infos\n\nHalte die Zusammenfassung knapp aber technisch präzise — diese wird als Wissensquelle für andere Techniker genutzt. Maximal 1500 Wörter. Antworte nur mit der Zusammenfassung, ohne Vor-/Nachsätze.' }
+        ]
+      }]
+    })
+  });
+  if(!res.ok){ const e = await res.json().catch(()=>({})); throw new Error(e.error?.message || 'Analyse '+res.status); }
+  const data = await res.json();
+  const summary = data.content?.[0]?.text || '';
+  await atUpdate('Wissen', recordId, { status: 'ready', summary });
+}
+
+async function deleteWissen(recordId){
+  if(!confirm('Dieses Dokument löschen?')) return;
+  try {
+    const res = await fetch(
+      'https://api.airtable.com/v0/' + APP_CONFIG.APP_BASE_ID + '/Wissen/' + recordId,
+      { method:'DELETE', headers: { 'Authorization':'Bearer '+APP_KEYS.airtableWriteKey } }
+    );
+    if(!res.ok) throw new Error('Löschen fehlgeschlagen');
+    await loadWissen();
+    renderWissenItem();
+    renderWissenModal();
+    toast('Gelöscht', 'success');
+  } catch(e){ toast(e.message, 'error'); }
 }
 
 async function katalogDelete(recordId){
