@@ -644,7 +644,7 @@ button{cursor:pointer;border:none;background:none}
 <div class="version-tag" id="versionTag"></div>
 
 <div class="debug-panel" id="debugPanel" style="display:none">
-  <div class="header"><span>DEBUG</span><button onclick="toggleDebug()">×</button></div>
+  <div class="header"><span>DEBUG</span><span style="display:flex;gap:2px"><button onclick="copyDebugLog()" title="Log kopieren">📋</button><button onclick="toggleDebug()" title="Schließen">×</button></span></div>
   <div id="debugLogList"></div>
 </div>
 
@@ -662,7 +662,7 @@ function debugLog(msg, type){
   DEBUG_LAST = now;
   const cls = type || 'ok';
   DEBUG_LOG.push({ t: total, d: delta, msg, cls });
-  if(DEBUG_LOG.length > 60) DEBUG_LOG.shift();
+  if(DEBUG_LOG.length > 200) DEBUG_LOG.shift();
   renderDebug();
 }
 function renderDebug(){
@@ -680,6 +680,28 @@ function toggleDebug(){
   const v = (panel.style.display !== 'none');
   panel.style.display = v ? 'none' : 'block';
   localStorage.setItem('debug_on', v ? '0' : '1');
+}
+function copyDebugLog(){
+  const lines = DEBUG_LOG.map(e => String(e.t).padStart(6)+'ms +'+String(e.d).padStart(5)+' ['+e.cls+'] '+e.msg);
+  const header = 'FLP Supporter Debug Log · '+APP_VERSION+' · '+new Date().toISOString()+'\n'+'-'.repeat(60)+'\n';
+  const text = header + lines.join('\n');
+  const fallback = ()=>{
+    // Fallback: Textarea + execCommand für ältere/iOS Safari Webviews
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); toast('Log kopiert ('+DEBUG_LOG.length+' Zeilen)', 'success'); }
+    catch(e){ toast('Kopieren fehlgeschlagen — Log in Konsole', 'error'); console.log(text); }
+    ta.remove();
+  };
+  if(navigator.clipboard?.writeText){
+    navigator.clipboard.writeText(text)
+      .then(()=> toast('Log kopiert ('+DEBUG_LOG.length+' Zeilen)', 'success'))
+      .catch(fallback);
+  } else fallback();
 }
 // Fetch-Wrapper — jede Anfrage mit Dauer + URL loggen
 const _origFetch = window.fetch.bind(window);
@@ -716,7 +738,7 @@ window.fetch = async function(input, init){
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v1.9.1';
+const APP_VERSION = 'v1.9.2';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
