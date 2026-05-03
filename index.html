@@ -186,9 +186,9 @@ button{cursor:pointer;border:none;background:none}
   transition:opacity .25s;
 }
 @keyframes techDrift{
-  0%{transform:translate(-50%,-50%)}
-  50%{transform:translate(calc(-50% + var(--drift-x)), calc(-50% + var(--drift-y)))}
-  100%{transform:translate(calc(-50% - var(--drift-x)*0.6), calc(-50% - var(--drift-y)*0.6))}
+  0%{transform:translate(calc(-50% + var(--drift-x)), calc(-50% + var(--drift-y)))}
+  50%{transform:translate(calc(-50% - var(--drift-x)), calc(-50% - var(--drift-y)))}
+  100%{transform:translate(calc(-50% + var(--drift-x)), calc(-50% + var(--drift-y)))}
 }
 .tech:active .tech-avatar{transform:scale(.95)}
 .tech.hidden-tech{opacity:.12;pointer-events:none}
@@ -780,7 +780,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.4.4';
+const APP_VERSION = 'v2.4.5';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
