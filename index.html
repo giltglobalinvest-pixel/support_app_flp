@@ -676,7 +676,7 @@ function toggleDebug(){
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v1.6.6';
+const APP_VERSION = 'v1.6.7';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -1395,7 +1395,13 @@ function renderConstellation(){
     const empty = document.createElement('div');
     empty.className = 'constellation-empty';
     empty.style.cursor = 'pointer';
-    empty.onclick = (ev) => { if(ev.target === empty || ev.target.classList?.contains('icon')) startAiOnlyChat(); };
+    empty.onclick = (ev) => {
+      // Wenn auf Button getappt → Button-Handler übernimmt (kein doppelter Aufruf)
+      if(ev.target.closest && ev.target.closest('button')) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      startAiOnlyChat();
+    };
     empty.innerHTML = '<div class="icon">○</div><div>Noch keine Kollegen im Netzwerk.<br>Frag direkt die <strong>FLP Supporter KI</strong>.</div><button class="action-button primary" style="margin-top:18px;width:auto;max-width:240px;flex:0 0 auto" onclick="startAiOnlyChat()">🤖 KI-Chat starten</button>';
     cont.appendChild(empty);
     document.getElementById('multiSelectBtn').disabled = true;
@@ -1409,14 +1415,26 @@ function renderConstellation(){
     const empty = document.createElement('div');
     empty.className = 'constellation-empty';
     empty.style.cursor = 'pointer';
-    empty.onclick = (ev) => { if(ev.target === empty || ev.target.classList?.contains('icon')) startAiOnlyChat(); };
+    empty.onclick = (ev) => {
+      // Wenn auf Button getappt → Button-Handler übernimmt (kein doppelter Aufruf)
+      if(ev.target.closest && ev.target.closest('button')) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      startAiOnlyChat();
+    };
     empty.innerHTML = '<div class="icon">○</div><div>Niemand passt zum Filter.<br>Filter ändern oder direkt die <strong>FLP Supporter KI</strong> fragen.</div><button class="action-button primary" style="margin-top:18px;width:auto;max-width:240px;flex:0 0 auto" onclick="startAiOnlyChat()">🤖 KI-Chat starten</button>';
     cont.appendChild(empty);
   } else if(onlineMatching.length === 0){
     const empty = document.createElement('div');
     empty.className = 'constellation-empty';
     empty.style.cursor = 'pointer';
-    empty.onclick = (ev) => { if(ev.target === empty || ev.target.classList?.contains('icon')) startAiOnlyChat(); };
+    empty.onclick = (ev) => {
+      // Wenn auf Button getappt → Button-Handler übernimmt (kein doppelter Aufruf)
+      if(ev.target.closest && ev.target.closest('button')) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      startAiOnlyChat();
+    };
     empty.style.bottom = 'auto';
     empty.style.top = '12px';
     empty.style.padding = '10px 16px';
