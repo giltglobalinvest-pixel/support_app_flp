@@ -66,9 +66,9 @@ button{cursor:pointer;border:none;background:none}
 .app-logo{font-family:'Archivo',sans-serif;font-weight:900;font-stretch:75%;font-size:16px;letter-spacing:.02em;display:flex;align-items:center;gap:8px}
 .app-logo .dot{width:7px;height:7px;background:var(--accent);border-radius:50%;box-shadow:0 0 10px var(--accent)}
 .profile-mini{
-  width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;
-  font-size:11px;font-weight:800;font-family:'Archivo',sans-serif;color:#fff;
-  background:linear-gradient(135deg,#a5b4fc,#6366f1);cursor:pointer;
+  width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:800;font-family:'Archivo',sans-serif;color:#fff;
+  background:linear-gradient(135deg,#a5b4fc,#6366f1);cursor:pointer;flex-shrink:0;
 }
 .icon-btn{width:34px;height:34px;display:flex;align-items:center;justify-content:center;color:var(--text);font-size:18px;border-radius:50%}
 .icon-btn:active{background:var(--surface)}
@@ -134,9 +134,9 @@ button{cursor:pointer;border:none;background:none}
 .filter-strip{padding:12px 18px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--rule);flex-shrink:0}
 .filter-strip::-webkit-scrollbar{display:none}
 .chip{
-  font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.06em;padding:7px 11px;
-  background:transparent;border:1px solid var(--rule-strong);border-radius:4px;color:var(--text-dim);
-  white-space:nowrap;text-transform:uppercase;font-weight:500;flex-shrink:0;transition:all .15s;
+  font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.06em;padding:10px 13px;
+  background:transparent;border:1px solid var(--rule-strong);border-radius:5px;color:var(--text-dim);
+  white-space:nowrap;text-transform:uppercase;font-weight:500;flex-shrink:0;transition:all .15s;min-height:38px;
 }
 .chip.active{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:700}
 .chip.with-count{background:var(--surface);color:var(--text)}
@@ -239,7 +239,7 @@ button{cursor:pointer;border:none;background:none}
 
 /* ===== CHAT VIEW ===== */
 .chat-header{padding:14px 18px;border-bottom:1px solid var(--rule);flex-shrink:0;display:flex;gap:10px;align-items:flex-start}
-.back-btn{width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--text);flex-shrink:0;margin-top:2px}
+.back-btn{width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--text);flex-shrink:0;margin:-4px -8px -4px -10px}
 .chat-header-content{flex:1;min-width:0}
 .chat-meta{font-family:'JetBrains Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:var(--text-dim);display:flex;align-items:center;gap:8px;margin-bottom:5px}
 .chat-meta .live-dot{width:6px;height:6px;background:var(--online);border-radius:50%;animation:pulse 2s ease-in-out infinite}
@@ -252,7 +252,7 @@ button{cursor:pointer;border:none;background:none}
 .mini-av.ai{background:linear-gradient(135deg,#c4b5fd,#8b5cf6);color:#fff}
 .participants-count{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;margin-left:8px}
 .chat-actions{display:flex;gap:4px;align-items:center;margin-left:auto}
-.chat-actions .icon-btn{font-size:14px;width:30px;height:30px}
+.chat-actions .icon-btn{font-size:16px;width:40px;height:40px}
 
 .ai-banner{margin:12px 18px 0;padding:10px 12px;background:var(--ai-glow);border:1px solid rgba(192,132,252,.30);border-radius:8px;display:flex;align-items:center;gap:11px;flex-shrink:0}
 .ai-icon{width:28px;height:28px;background:linear-gradient(135deg,#c4b5fd,#8b5cf6);border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:'Archivo',sans-serif;font-weight:900;font-size:12px;color:#fff;flex-shrink:0}
@@ -337,7 +337,7 @@ button{cursor:pointer;border:none;background:none}
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 .modal-header{padding:18px 22px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--rule)}
 .modal-title{font-family:'Archivo',sans-serif;font-weight:800;font-stretch:75%;font-size:20px;letter-spacing:-.01em}
-.modal-close{font-size:22px;color:var(--text-dim);width:32px;height:32px;display:flex;align-items:center;justify-content:center}
+.modal-close{font-size:24px;color:var(--text-dim);width:44px;height:44px;display:flex;align-items:center;justify-content:center;margin:-8px -10px -8px 0}
 .modal-body{padding:18px 22px;overflow-y:auto;scrollbar-width:none;flex:1}
 .modal-body::-webkit-scrollbar{display:none}
 .modal-footer{padding:14px 22px 18px;border-top:1px solid var(--rule)}
@@ -353,7 +353,7 @@ button{cursor:pointer;border:none;background:none}
 .settings-row:last-child{border-bottom:none}
 .settings-label{font-size:14px;font-weight:500}
 .settings-value{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em}
-.settings-action{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;font-weight:700;padding:6px 10px;border:1px solid var(--accent);border-radius:5px}
+.settings-action{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;font-weight:700;padding:10px 14px;border:1px solid var(--accent);border-radius:6px;min-height:36px}
 .settings-action.danger{color:var(--danger);border-color:var(--danger)}
 
 .kat-section{margin-bottom:22px}
@@ -675,7 +675,7 @@ function toggleDebug(){
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v1.6.8';
+const APP_VERSION = 'v1.6.9';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -2790,8 +2790,8 @@ async function checkForLatestVersion(){
 // ============================================================
 document.getElementById('versionTag').textContent = APP_VERSION;
 
-// Debug-Panel automatisch zeigen wenn Flag gesetzt ODER beim ersten Start (zur Diagnose)
-if(localStorage.getItem('debug_on') !== '0'){
+// Debug-Panel nur zeigen wenn explizit aktiviert (localStorage.setItem('debug_on','1') in Konsole)
+if(localStorage.getItem('debug_on') === '1'){
   const dp = document.getElementById('debugPanel');
   if(dp) dp.style.display = 'block';
 }
