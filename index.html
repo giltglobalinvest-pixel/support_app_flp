@@ -618,7 +618,7 @@ button{cursor:pointer;border:none;background:none}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v1.6';
+const APP_VERSION = 'v1.6.1';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -740,24 +740,27 @@ async function ensureTable(tableName, fields){
 }
 
 // FELD ZU EXISTIERENDER TABELLE HINZUFÜGEN (idempotent)
+// Liefert true wenn Feld jetzt existiert, false wenn Erstellung fehlschlug.
 async function ensureField(tableName, fieldName, type){
-  if(!APP_KEYS.airtableWriteKey) return;
+  if(!APP_KEYS.airtableWriteKey) return false;
   try {
     const metaRes = await fetch(
       'https://api.airtable.com/v0/meta/bases/' + APP_CONFIG.APP_BASE_ID + '/tables',
       { headers: { 'Authorization':'Bearer '+APP_KEYS.airtableWriteKey } }
     );
+    if(!metaRes.ok) return false;
     const meta = await metaRes.json();
     const table = (meta.tables || []).find(t => t.name === tableName);
-    if(!table) return;
-    if((table.fields || []).find(f => f.name === fieldName)) return;
-    await fetch(
+    if(!table) return false;
+    if((table.fields || []).find(f => f.name === fieldName)) return true;
+    const createRes = await fetch(
       'https://api.airtable.com/v0/meta/bases/' + APP_CONFIG.APP_BASE_ID + '/tables/' + table.id + '/fields',
       { method:'POST',
         headers:{'Authorization':'Bearer '+APP_KEYS.airtableWriteKey,'Content-Type':'application/json'},
         body: JSON.stringify({ name: fieldName, type }) }
     );
-  } catch(e){ /* still works */ }
+    return createRes.ok;
+  } catch(e){ return false; }
 }
 
 // ============================================================
@@ -1918,6 +1921,10 @@ async function uploadVoiceMessage(file, transcript){
   sendBtn.disabled = true;
   toast('Sprachnachricht wird gesendet...');
   try {
+    const fieldOk = await ensureField('Messages', 'attachments', 'multipleAttachments');
+    if(!fieldOk){
+      throw new Error('Anhang-Feld konnte nicht angelegt werden. Bitte in Airtable ein "attachments"-Feld zur Messages-Tabelle hinzufügen.');
+    }
     const base64 = await new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result.split(',')[1]);
@@ -1941,7 +1948,15 @@ async function uploadVoiceMessage(file, transcript){
         headers:{'Authorization':'Bearer '+APP_KEYS.airtableWriteKey,'Content-Type':'application/json'},
         body: JSON.stringify({ contentType: file.type || 'audio/webm', file: base64, filename: file.name }) }
     );
-    if(!upRes.ok){ const e = await upRes.text(); throw new Error('Upload: '+e); }
+    if(!upRes.ok){
+      const errTxt = await upRes.text();
+      let parsed; try { parsed = JSON.parse(errTxt); } catch(e){}
+      const code = parsed?.error?.type || '';
+      if(code.includes('PERMISSIONS') || code.includes('NOT_FOUND')){
+        throw new Error('Sprach-Upload abgewiesen. Token-Scope oder attachments-Feld prüfen.');
+      }
+      throw new Error('Upload fehlgeschlagen: '+errTxt.slice(0,200));
+    }
     await atUpdate('Chats', STATE.currentChat.id, {
       last_msg: '🎙 ' + (transcript ? transcript.slice(0, 80) : 'Sprachnachricht'),
       last_msg_at: created,
@@ -2013,6 +2028,11 @@ async function handleChatAttachment(input){
       return;
     }
     toast('Lade Anhang hoch...');
+    // Sicherstellen dass das attachments-Feld existiert (Erstinstallation oder Migration)
+    const fieldOk = await ensureField('Messages', 'attachments', 'multipleAttachments');
+    if(!fieldOk){
+      throw new Error('Anhang-Feld konnte nicht angelegt werden. Bitte in Airtable manuell ein "attachments"-Feld (Typ: Attachment) zur Messages-Tabelle hinzufügen, oder dem Token "schema.bases:write" Scope geben.');
+    }
     const base64 = await new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result.split(',')[1]);
@@ -2020,12 +2040,10 @@ async function handleChatAttachment(input){
       reader.readAsDataURL(file);
     });
     const created = new Date().toISOString();
-    // Optionaler Begleittext aus dem Eingabefeld
     const inp = document.getElementById('chatInput');
     const caption = (inp.value || '').trim();
     inp.value = '';
     inp.style.height = 'auto';
-    // Message-Record anlegen
     const rec = await atWrite('Messages', {
       msg_id: 'm_' + Date.now(),
       chat_id: STATE.currentChat.fields.chat_id,
@@ -2036,14 +2054,22 @@ async function handleChatAttachment(input){
       created,
       lang: myLang(),
     });
-    // Datei anhängen
     const upRes = await fetch(
       'https://content.airtable.com/v0/' + APP_CONFIG.APP_BASE_ID + '/' + rec.id + '/attachments/uploadAttachment',
       { method:'POST',
         headers:{'Authorization':'Bearer '+APP_KEYS.airtableWriteKey,'Content-Type':'application/json'},
         body: JSON.stringify({ contentType: file.type || 'application/octet-stream', file: base64, filename: file.name }) }
     );
-    if(!upRes.ok){ const e = await upRes.text(); throw new Error('Upload: '+e); }
+    if(!upRes.ok){
+      const errTxt = await upRes.text();
+      let parsed;
+      try { parsed = JSON.parse(errTxt); } catch(e){}
+      const code = parsed?.error?.type || '';
+      if(code.includes('PERMISSIONS') || code.includes('NOT_FOUND')){
+        throw new Error('Anhang-Upload abgewiesen. Token-Scope reicht vermutlich nicht (braucht "data.records:write" + Schema-Schreibrecht), oder das attachments-Feld fehlt.');
+      }
+      throw new Error('Upload fehlgeschlagen: '+errTxt.slice(0,200));
+    }
     await atUpdate('Chats', STATE.currentChat.id, {
       last_msg: '📎 ' + file.name.slice(0, 80),
       last_msg_at: created,
