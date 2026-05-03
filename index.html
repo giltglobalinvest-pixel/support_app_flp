@@ -453,14 +453,6 @@ button{cursor:pointer;border:none;background:none}
 
 .version-tag{display:none}
 
-.debug-panel{position:fixed;bottom:env(safe-area-inset-bottom,0);left:2px;width:200px;max-height:35vh;background:rgba(0,0,0,.88);color:#7fff7f;font-family:'JetBrains Mono',monospace;font-size:9px;line-height:1.35;padding:5px 7px;border-radius:5px;z-index:9999;overflow-y:auto;pointer-events:auto;box-shadow:0 4px 12px rgba(0,0,0,.4)}
-.debug-panel .row{white-space:pre-wrap;word-break:break-all}
-.debug-panel .ok{color:#7fff7f}
-.debug-panel .warn{color:#ffd454}
-.debug-panel .err{color:#ff7878}
-.debug-panel .tap{color:#7ddcff}
-.debug-panel .header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #444;padding:4px 0;margin-bottom:4px;font-weight:700;position:sticky;top:0;background:rgba(0,0,0,.95);z-index:1}
-.debug-panel .header button{background:transparent;border:none;color:#fff;font-size:13px;padding:4px 8px;cursor:pointer;min-width:28px;min-height:28px}
 
 @media(min-width:768px){
   .app{max-width:440px;margin:0 auto;border-left:1px solid var(--rule);border-right:1px solid var(--rule)}
@@ -692,112 +684,15 @@ button{cursor:pointer;border:none;background:none}
 
 <div class="version-tag" id="versionTag"></div>
 
-<div class="debug-panel" id="debugPanel" style="display:none">
-  <div class="header"><span>DEBUG</span><span style="display:flex;gap:2px"><button onclick="copyDebugLog()" title="Log kopieren">📋</button><button onclick="toggleDebug()" title="Schließen">×</button></span></div>
-  <div id="debugLogList"></div>
-</div>
 
 <script>
-// ============================================================
-// DEBUG-OVERLAY
-// ============================================================
-const DEBUG_START = (typeof performance !== 'undefined' ? performance.now() : Date.now());
-const DEBUG_LOG = [];
-let DEBUG_LAST = DEBUG_START;
-function debugLog(msg, type){
-  const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
-  const total = Math.round(now - DEBUG_START);
-  const delta = Math.round(now - DEBUG_LAST);
-  DEBUG_LAST = now;
-  const cls = type || 'ok';
-  DEBUG_LOG.push({ t: total, d: delta, msg, cls });
-  if(DEBUG_LOG.length > 200) DEBUG_LOG.shift();
-  renderDebug();
-}
-function renderDebug(){
-  const list = document.getElementById('debugLogList');
-  if(!list) return;
-  list.innerHTML = DEBUG_LOG.slice(-30).map(e =>
-    '<div class="row '+e.cls+'">'+String(e.t).padStart(5)+'ms +'+String(e.d).padStart(4)+' '+e.msg+'</div>'
-  ).join('');
-  const panel = document.getElementById('debugPanel');
-  if(panel) panel.scrollTop = panel.scrollHeight;
-}
-function toggleDebug(){
-  const panel = document.getElementById('debugPanel');
-  if(!panel) return;
-  const v = (panel.style.display !== 'none');
-  panel.style.display = v ? 'none' : 'block';
-  localStorage.setItem('debug_on', v ? '0' : '1');
-}
-function copyDebugLog(){
-  const lines = DEBUG_LOG.map(e => String(e.t).padStart(6)+'ms +'+String(e.d).padStart(5)+' ['+e.cls+'] '+e.msg);
-  const header = 'FLP Supporter Debug Log · '+APP_VERSION+' · '+new Date().toISOString()+'\n'+'-'.repeat(60)+'\n';
-  const text = header + lines.join('\n');
-  const fallback = ()=>{
-    // Fallback: Textarea + execCommand für ältere/iOS Safari Webviews
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.opacity = '0';
-    document.body.appendChild(ta);
-    ta.select();
-    try { document.execCommand('copy'); toast('Log kopiert ('+DEBUG_LOG.length+' Zeilen)', 'success'); }
-    catch(e){ toast('Kopieren fehlgeschlagen — Log in Konsole', 'error'); console.log(text); }
-    ta.remove();
-  };
-  if(navigator.clipboard?.writeText){
-    navigator.clipboard.writeText(text)
-      .then(()=> toast('Log kopiert ('+DEBUG_LOG.length+' Zeilen)', 'success'))
-      .catch(fallback);
-  } else fallback();
-}
-// Fetch-Wrapper — jede Anfrage mit Dauer + URL loggen
-const _origFetch = window.fetch.bind(window);
-window.fetch = async function(input, init){
-  const url = typeof input === 'string' ? input : input.url;
-  const method = (init && init.method) || 'GET';
-  // URL kürzen für Log
-  let short = url.replace('https://api.airtable.com/v0/', 'AT:').replace('https://content.airtable.com/v0/', 'ATc:').replace('https://api.anthropic.com/', 'AN:').replace('https://api.openai.com/', 'OAI:').replace('https://raw.githubusercontent.com/', 'GH:');
-  if(short.length > 60) short = short.slice(0,57)+'...';
-  const t0 = performance.now();
-  try {
-    const res = await _origFetch(input, init);
-    const dt = Math.round(performance.now() - t0);
-    debugLog(method+' '+dt+'ms '+(res.ok?'':res.status+' ')+short, res.ok ? 'ok' : 'warn');
-    return res;
-  } catch(e){
-    const dt = Math.round(performance.now() - t0);
-    debugLog(method+' '+dt+'ms ERR '+short, 'err');
-    throw e;
-  }
-};
-
-// Touch-Tracking — sehen ob Taps überhaupt ankommen + Koordinaten + komplette Element-Stack
-['pointerdown','click'].forEach(ev => {
-  document.addEventListener(ev, e => {
-    const tag = (e.target.tagName || '').toLowerCase();
-    const id = e.target.id ? '#'+e.target.id : '';
-    const cls = e.target.className ? '.'+String(e.target.className).split(' ')[0] : '';
-    const x = Math.round(e.clientX || 0), y = Math.round(e.clientY || 0);
-    debugLog(ev+' @'+x+','+y+' '+tag+id+cls, 'tap');
-    // Bei pointerdown: ganze Z-Stack logen
-    if(ev === 'pointerdown' && document.elementsFromPoint){
-      const stack = document.elementsFromPoint(x, y).slice(0, 4).map(el => {
-        const t = el.tagName.toLowerCase();
-        const i = el.id ? '#'+el.id : '';
-        const c = el.className ? '.'+String(el.className).split(' ')[0] : '';
-        return t+i+c;
-      });
-      debugLog('  stack: '+stack.join(' < '), 'tap');
-    }
-  }, { capture: true, passive: true });
-});
+// debugLog ist No-Op (Debug-Panel entfernt — Aufrufe in code bleiben harmlos)
+function debugLog(){}
 
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.0.2';
+const APP_VERSION = 'v2.0.3';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -3428,12 +3323,6 @@ async function checkForLatestVersion(){
 // INIT
 // ============================================================
 document.getElementById('versionTag').textContent = APP_VERSION;
-
-if(localStorage.getItem('debug_on') !== '0'){
-  const dp = document.getElementById('debugPanel');
-  if(dp) dp.style.display = 'block';
-}
-debugLog('script geladen', 'ok');
 
 // SOFORT vor allem anderen: Version-Check. Wenn neuere Version online → hart reloaden.
 async function preInitVersionCheck(){
