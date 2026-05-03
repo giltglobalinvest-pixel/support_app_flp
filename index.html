@@ -296,6 +296,19 @@ button{cursor:pointer;border:none;background:none}
 .input-send{width:38px;height:38px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--on-accent);flex-shrink:0;font-size:18px;font-weight:700}
 .input-send:disabled{opacity:.4;background:var(--surface)}
 .input-send:active{transform:scale(.95)}
+.input-attach{width:38px;height:38px;background:var(--surface);border:1px solid var(--rule-strong);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--text);flex-shrink:0;font-size:22px;font-weight:300;line-height:1}
+.input-attach:active{transform:scale(.95);background:var(--surface-strong)}
+
+.msg-attachment{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+.msg-attachment img{max-width:100%;max-height:240px;border-radius:8px;cursor:pointer;display:block;background:var(--surface)}
+.msg-attachment .attach-file{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface);border:1px solid var(--rule-strong);border-radius:8px;color:var(--text);text-decoration:none;font-size:12.5px}
+.msg-row.own .msg-attachment .attach-file{background:rgba(10,20,40,.18);border-color:rgba(10,20,40,.25);color:var(--on-accent)}
+.msg-attachment .attach-file .ico{font-size:18px;flex-shrink:0}
+.msg-attachment .attach-file .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.msg-attachment .attach-file .sz{font-family:'JetBrains Mono',monospace;font-size:9.5px;opacity:.7;flex-shrink:0}
+.attach-preview-overlay{position:fixed;inset:0;background:rgba(10,20,40,.95);z-index:400;display:flex;align-items:center;justify-content:center;padding:20px}
+.attach-preview-overlay img{max-width:100%;max-height:100%;border-radius:8px}
+.attach-preview-overlay .close{position:absolute;top:18px;right:18px;color:#fff;background:rgba(0,0,0,.5);width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer}
 
 /* ===== SETTINGS / MODAL ===== */
 .modal{position:fixed;inset:0;background:rgba(10,20,40,.8);backdrop-filter:blur(8px);z-index:200;display:none;align-items:flex-end;animation:fadeIn .2s}
@@ -486,6 +499,8 @@ button{cursor:pointer;border:none;background:none}
     </div>
     <div class="chat-body" id="chatBody"></div>
     <div class="chat-input">
+      <button class="input-attach" id="chatAttachBtn" onclick="document.getElementById('chatFileInput').click()" title="Datei anhängen">+</button>
+      <input type="file" id="chatFileInput" accept="image/*,application/pdf,.doc,.docx,.txt" style="display:none" onchange="handleChatAttachment(this)">
       <textarea class="input-field" id="chatInput" placeholder="Nachricht oder @KI fragen..." rows="1"></textarea>
       <button class="input-send" id="chatSendBtn" onclick="sendChatMessage()">→</button>
     </div>
@@ -571,7 +586,7 @@ button{cursor:pointer;border:none;background:none}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v1.5';
+const APP_VERSION = 'v1.5.1';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -842,9 +857,11 @@ async function ensureAllTables(){
     { name:'created', type:'singleLineText' },
     { name:'lang', type:'singleLineText' },
     { name:'translations', type:'multilineText' },
+    { name:'attachments', type:'multipleAttachments' },
   ]);
   await ensureField('Messages', 'lang', 'singleLineText');
   await ensureField('Messages', 'translations', 'multilineText');
+  await ensureField('Messages', 'attachments', 'multipleAttachments');
   await ensureTable('Katalog', [
     { name:'name', type:'singleLineText' },
     { name:'meta', type:'singleLineText' },
@@ -1675,20 +1692,37 @@ function renderMessages(){
     }
     let displayText = needsTranslation ? (cached || f.content || '') : (f.content || '');
     let badgeHtml = '';
-    if(needsTranslation){
+    if(needsTranslation && f.content){
       const stateAttr = cached ? 'trans' : 'translating';
       const badgeText = cached
         ? ('Übersetzt · '+sourceLang.toUpperCase()+'→'+targetLang.toUpperCase()+' · Tap für Original')
         : 'Übersetzung läuft...';
       badgeHtml = '<div class="msg-trans-badge'+(cached?'':' translating')+'" data-msg-id="'+m.id+'" data-source="'+sourceLang+'" data-target="'+targetLang+'" data-orig="'+esc(f.content||'')+'" data-trans="'+esc(cached)+'" data-state="'+stateAttr+'">'+badgeText+'</div>';
     }
+    // Anhänge rendern
+    let attachHtml = '';
+    const atts = f.attachments || [];
+    if(atts.length){
+      attachHtml = '<div class="msg-attachment">';
+      atts.forEach(a => {
+        const isImg = (a.type || '').startsWith('image/');
+        if(isImg){
+          attachHtml += '<img src="'+esc(a.url)+'" alt="'+esc(a.filename||'')+'" onclick="showAttachmentPreview(\''+esc(a.url)+'\')">';
+        } else {
+          const ico = (a.type || '').includes('pdf') ? '📄' : '📎';
+          attachHtml += '<a class="attach-file" href="'+esc(a.url)+'" target="_blank" rel="noopener"><span class="ico">'+ico+'</span><span class="nm">'+esc(a.filename||'Datei')+'</span><span class="sz">'+fmtBytes(a.size)+'</span></a>';
+        }
+      });
+      attachHtml += '</div>';
+    }
+    const textBlock = displayText ? '<div class="msg-text" data-msg-text="'+m.id+'">'+esc(displayText)+'</div>' : '';
     if(isOwn){
-      html += '<div class="msg-row own"><div class="msg-bubble"><div class="msg-text" data-msg-text="'+m.id+'">'+esc(displayText)+'</div>'+badgeHtml+'<div class="msg-time" style="text-align:right">'+time+'</div></div></div>';
+      html += '<div class="msg-row own"><div class="msg-bubble">'+textBlock+attachHtml+badgeHtml+'<div class="msg-time" style="text-align:right">'+time+'</div></div></div>';
     } else {
       const idx = (f.sender_key||'').charCodeAt(0) % 8;
       const cls = isAI ? 'ai' : 'av-'+(idx+1);
       const initials = isAI ? 'KI' : makeInitials(f.sender_name || f.sender_key);
-      html += '<div class="msg-row"><div class="mini-av '+cls+'">'+initials+'</div><div class="msg-bubble '+(isAI?'ai':'')+'"><div class="msg-author">'+esc(f.sender_name||'?')+'</div><div class="msg-text" data-msg-text="'+m.id+'">'+esc(displayText)+'</div>'+badgeHtml+'<div class="msg-time">'+time+'</div></div></div>';
+      html += '<div class="msg-row"><div class="mini-av '+cls+'">'+initials+'</div><div class="msg-bubble '+(isAI?'ai':'')+'"><div class="msg-author">'+esc(f.sender_name||'?')+'</div>'+textBlock+attachHtml+badgeHtml+'<div class="msg-time">'+time+'</div></div></div>';
     }
   });
   body.innerHTML = html;
@@ -1722,6 +1756,77 @@ function renderMessages(){
       }
     }
   });
+}
+
+async function handleChatAttachment(input){
+  const file = input.files[0];
+  input.value = '';
+  if(!file || !STATE.currentChat) return;
+  if(file.size > 5 * 1024 * 1024){ toast('Max 5 MB pro Datei', 'error'); return; }
+
+  const sendBtn = document.getElementById('chatSendBtn');
+  const attachBtn = document.getElementById('chatAttachBtn');
+  sendBtn.disabled = true; attachBtn.disabled = true;
+  toast('Lade Anhang hoch...');
+  try {
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    const created = new Date().toISOString();
+    // Optionaler Begleittext aus dem Eingabefeld
+    const inp = document.getElementById('chatInput');
+    const caption = (inp.value || '').trim();
+    inp.value = '';
+    inp.style.height = 'auto';
+    // Message-Record anlegen
+    const rec = await atWrite('Messages', {
+      msg_id: 'm_' + Date.now(),
+      chat_id: STATE.currentChat.fields.chat_id,
+      sender_key: APP_KEYS.user.api_key,
+      sender_name: APP_KEYS.user.name || APP_KEYS.user.api_key,
+      msg_type: 'attachment',
+      content: caption,
+      created,
+      lang: myLang(),
+    });
+    // Datei anhängen
+    const upRes = await fetch(
+      'https://content.airtable.com/v0/' + APP_CONFIG.APP_BASE_ID + '/' + rec.id + '/attachments/uploadAttachment',
+      { method:'POST',
+        headers:{'Authorization':'Bearer '+APP_KEYS.airtableWriteKey,'Content-Type':'application/json'},
+        body: JSON.stringify({ contentType: file.type || 'application/octet-stream', file: base64, filename: file.name }) }
+    );
+    if(!upRes.ok){ const e = await upRes.text(); throw new Error('Upload: '+e); }
+    await atUpdate('Chats', STATE.currentChat.id, {
+      last_msg: '📎 ' + file.name.slice(0, 80),
+      last_msg_at: created,
+    });
+    await loadMessages();
+    renderMessages();
+    toast('Hochgeladen', 'success');
+  } catch(e){
+    toast(e.message || 'Anhang fehlgeschlagen', 'error');
+  } finally {
+    sendBtn.disabled = false; attachBtn.disabled = false;
+  }
+}
+
+function showAttachmentPreview(url){
+  const overlay = document.createElement('div');
+  overlay.className = 'attach-preview-overlay';
+  overlay.innerHTML = '<div class="close" onclick="this.parentElement.remove()">×</div><img src="'+esc(url)+'" alt="">';
+  overlay.addEventListener('click', e => { if(e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
+
+function fmtBytes(n){
+  if(!n) return '';
+  if(n < 1024) return n + ' B';
+  if(n < 1024*1024) return Math.round(n/1024) + ' KB';
+  return (n/1048576).toFixed(1) + ' MB';
 }
 
 async function sendChatMessage(){
