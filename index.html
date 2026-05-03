@@ -298,6 +298,22 @@ button{cursor:pointer;border:none;background:none}
 .input-send:active{transform:scale(.95)}
 .input-attach{width:38px;height:38px;background:var(--surface);border:1px solid var(--rule-strong);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--text);flex-shrink:0;font-size:22px;font-weight:300;line-height:1}
 .input-attach:active{transform:scale(.95);background:var(--surface-strong)}
+.input-mic{width:38px;height:38px;background:var(--surface);border:1px solid var(--rule-strong);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--text);flex-shrink:0;font-size:16px;line-height:1}
+.input-mic:active{transform:scale(.95);background:var(--surface-strong)}
+.input-mic.recording{background:var(--danger);border-color:var(--danger);color:#fff;animation:pulse 1.4s ease-in-out infinite}
+
+.voice-overlay{position:fixed;inset:0;background:rgba(10,20,40,.92);backdrop-filter:blur(8px);z-index:400;display:none;align-items:flex-end;animation:fadeIn .2s}
+.voice-overlay.active{display:flex}
+.voice-card{width:100%;background:var(--phone-screen);border-top:1px solid var(--rule-strong);border-radius:18px 18px 0 0;padding:28px 22px calc(22px + env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;gap:14px;animation:slideUp .25s}
+.voice-rec-dot{width:14px;height:14px;background:var(--danger);border-radius:50%;animation:pulse 1.2s ease-in-out infinite;box-shadow:0 0 14px var(--danger)}
+.voice-status{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--danger);letter-spacing:.16em;font-weight:700}
+.voice-timer{font-family:'JetBrains Mono',monospace;font-size:36px;color:var(--text);letter-spacing:.04em;font-weight:300;font-variant-numeric:tabular-nums}
+.voice-transcript{width:100%;min-height:60px;max-height:140px;overflow-y:auto;padding:10px 14px;background:var(--surface);border:1px solid var(--rule-strong);border-radius:8px;font-size:13.5px;line-height:1.45;color:var(--text);text-align:left;white-space:pre-wrap}
+.voice-transcript:empty::before{content:'Sprich jetzt...';color:var(--text-very-dim)}
+.voice-actions{display:flex;gap:10px;width:100%;margin-top:6px}
+.voice-cancel{flex:1;padding:13px;background:var(--surface);border:1px solid var(--rule-strong);border-radius:10px;color:var(--text-dim);font-weight:600;font-size:14px;font-family:inherit}
+.voice-send{flex:2;padding:13px;background:var(--accent);border:none;border-radius:10px;color:var(--on-accent);font-weight:700;font-size:14px;font-family:inherit;box-shadow:0 8px 20px -8px var(--accent)}
+.voice-cancel:active,.voice-send:active{transform:scale(.985)}
 
 .msg-attachment{margin-top:8px;display:flex;flex-direction:column;gap:6px}
 .msg-attachment img{max-width:100%;max-height:240px;border-radius:8px;cursor:pointer;display:block;background:var(--surface)}
@@ -503,6 +519,7 @@ button{cursor:pointer;border:none;background:none}
       <button class="input-attach" id="chatAttachBtn" onclick="document.getElementById('chatFileInput').click()" title="Datei anhängen">+</button>
       <input type="file" id="chatFileInput" accept="image/*,video/*,application/pdf,.doc,.docx,.txt" style="display:none" onchange="handleChatAttachment(this)">
       <textarea class="input-field" id="chatInput" placeholder="Nachricht oder @KI fragen..." rows="1"></textarea>
+      <button class="input-mic" id="chatMicBtn" onclick="startVoiceRecording()" title="Sprachnachricht aufnehmen">🎙</button>
       <button class="input-send" id="chatSendBtn" onclick="sendChatMessage()">→</button>
     </div>
   </div>
@@ -567,6 +584,20 @@ button{cursor:pointer;border:none;background:none}
   </div>
 </div>
 
+<!-- VOICE RECORDING OVERLAY -->
+<div class="voice-overlay" id="voiceOverlay">
+  <div class="voice-card">
+    <div class="voice-rec-dot"></div>
+    <div class="voice-status">AUFNAHME LÄUFT</div>
+    <div class="voice-timer" id="voiceTimer">00:00</div>
+    <div class="voice-transcript" id="voiceTranscriptPreview">Sprich jetzt...</div>
+    <div class="voice-actions">
+      <button class="voice-cancel" onclick="cancelVoiceRecording()">Verwerfen</button>
+      <button class="voice-send" onclick="stopVoiceRecording(true)">Senden →</button>
+    </div>
+  </div>
+</div>
+
 <!-- PRE-CHAT KONTEXT MODAL -->
 <div class="modal" id="preChatModal">
   <div class="modal-sheet">
@@ -587,7 +618,7 @@ button{cursor:pointer;border:none;background:none}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v1.5.3';
+const APP_VERSION = 'v1.6';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -1720,17 +1751,26 @@ function renderMessages(){
     if(atts.length){
       attachHtml = '<div class="msg-attachment">';
       atts.forEach(a => {
-        const isImg = (a.type || '').startsWith('image/');
+        const t = a.type || '';
+        const isImg = t.startsWith('image/');
+        const isAudio = t.startsWith('audio/') || /\.(webm|m4a|mp3|ogg|wav)$/i.test(a.filename||'');
+        const isVideo = t.startsWith('video/');
         if(isImg){
           attachHtml += '<img src="'+esc(a.url)+'" alt="'+esc(a.filename||'')+'" onclick="showAttachmentPreview(\''+esc(a.url)+'\')">';
+        } else if(isAudio){
+          attachHtml += '<audio controls preload="metadata" src="'+esc(a.url)+'" style="width:100%;max-width:280px;height:38px"></audio>';
+        } else if(isVideo){
+          attachHtml += '<video controls preload="metadata" src="'+esc(a.url)+'" style="max-width:100%;max-height:240px;border-radius:8px;background:#000"></video>';
         } else {
-          const ico = (a.type || '').includes('pdf') ? '📄' : '📎';
+          const ico = t.includes('pdf') ? '📄' : '📎';
           attachHtml += '<a class="attach-file" href="'+esc(a.url)+'" target="_blank" rel="noopener"><span class="ico">'+ico+'</span><span class="nm">'+esc(a.filename||'Datei')+'</span><span class="sz">'+fmtBytes(a.size)+'</span></a>';
         }
       });
       attachHtml += '</div>';
     }
-    const textBlock = displayText ? '<div class="msg-text" data-msg-text="'+m.id+'">'+esc(displayText)+'</div>' : '';
+    const isVoice = f.msg_type === 'voice';
+    const voicePrefix = isVoice && displayText ? '<div style="font-family:\'JetBrains Mono\',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:'+(isOwn?'rgba(10,20,40,.55)':'var(--text-very-dim)')+';margin-bottom:4px">🎙 Transkript</div>' : '';
+    const textBlock = displayText ? voicePrefix + '<div class="msg-text" data-msg-text="'+m.id+'">'+esc(displayText)+'</div>' : '';
     if(isOwn){
       html += '<div class="msg-row own"><div class="msg-bubble">'+textBlock+attachHtml+badgeHtml+'<div class="msg-time" style="text-align:right">'+time+'</div></div></div>';
     } else {
@@ -1771,6 +1811,149 @@ function renderMessages(){
       }
     }
   });
+}
+
+// ============================================================
+// VOICE-RECORDING + WEB-SPEECH-API TRANSCRIPTION
+// ============================================================
+let VOICE_REC = { mediaRecorder: null, chunks: [], speech: null, transcript: '', startTs: 0, timerInt: null, stream: null };
+
+async function startVoiceRecording(){
+  if(!navigator.mediaDevices?.getUserMedia){ toast('Mikrofon nicht verfügbar', 'error'); return; }
+  if(VOICE_REC.mediaRecorder?.state === 'recording') return;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    VOICE_REC.stream = stream;
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
+                    : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm'
+                    : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '';
+    const opts = mimeType ? { mimeType } : {};
+    VOICE_REC.mediaRecorder = new MediaRecorder(stream, opts);
+    VOICE_REC.chunks = [];
+    VOICE_REC.transcript = '';
+    VOICE_REC.mediaRecorder.ondataavailable = e => { if(e.data.size > 0) VOICE_REC.chunks.push(e.data); };
+    VOICE_REC.mediaRecorder.start();
+    VOICE_REC.startTs = Date.now();
+
+    // Web Speech API für Transkription (best-effort)
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(SR){
+      try {
+        VOICE_REC.speech = new SR();
+        VOICE_REC.speech.lang = (myLang() === 'en') ? 'en-US' : 'de-DE';
+        VOICE_REC.speech.continuous = true;
+        VOICE_REC.speech.interimResults = true;
+        VOICE_REC.speech.onresult = e => {
+          let interim = '';
+          for(let i = e.resultIndex; i < e.results.length; i++){
+            const t = e.results[i][0].transcript;
+            if(e.results[i].isFinal) VOICE_REC.transcript += t + ' ';
+            else interim += t;
+          }
+          const el = document.getElementById('voiceTranscriptPreview');
+          if(el) el.textContent = (VOICE_REC.transcript + interim).trim();
+        };
+        VOICE_REC.speech.onerror = ev => { /* ignore — trotzdem recorden */ };
+        VOICE_REC.speech.start();
+      } catch(e){ /* SpeechRec optional */ }
+    }
+
+    document.getElementById('voiceOverlay').classList.add('active');
+    document.getElementById('voiceTranscriptPreview').textContent = '';
+    document.getElementById('voiceTimer').textContent = '00:00';
+    document.getElementById('chatMicBtn').classList.add('recording');
+
+    VOICE_REC.timerInt = setInterval(() => {
+      const sec = Math.floor((Date.now() - VOICE_REC.startTs) / 1000);
+      const mm = String(Math.floor(sec / 60)).padStart(2, '0');
+      const ss = String(sec % 60).padStart(2, '0');
+      const t = document.getElementById('voiceTimer');
+      if(t) t.textContent = mm + ':' + ss;
+      if(sec >= 120) stopVoiceRecording(true); // 2-Min Hard-Cap
+    }, 200);
+  } catch(e){
+    toast('Mikrofon-Zugriff verweigert', 'error');
+  }
+}
+
+function _cleanupVoice(){
+  if(VOICE_REC.timerInt) clearInterval(VOICE_REC.timerInt);
+  VOICE_REC.timerInt = null;
+  if(VOICE_REC.speech){ try { VOICE_REC.speech.stop(); } catch(e){} VOICE_REC.speech = null; }
+  if(VOICE_REC.stream){ VOICE_REC.stream.getTracks().forEach(t => t.stop()); VOICE_REC.stream = null; }
+  document.getElementById('chatMicBtn')?.classList.remove('recording');
+  document.getElementById('voiceOverlay')?.classList.remove('active');
+}
+
+function cancelVoiceRecording(){
+  if(VOICE_REC.mediaRecorder?.state === 'recording'){
+    VOICE_REC.mediaRecorder.onstop = () => {};
+    VOICE_REC.mediaRecorder.stop();
+  }
+  _cleanupVoice();
+  VOICE_REC.transcript = '';
+}
+
+function stopVoiceRecording(send){
+  const mr = VOICE_REC.mediaRecorder;
+  if(!mr || mr.state !== 'recording'){ _cleanupVoice(); return; }
+  mr.onstop = async () => {
+    const mimeType = mr.mimeType || 'audio/webm';
+    const ext = mimeType.includes('mp4') ? 'm4a' : 'webm';
+    const blob = new Blob(VOICE_REC.chunks, { type: mimeType });
+    const file = new File([blob], 'voice_' + Date.now() + '.' + ext, { type: mimeType });
+    const transcript = (VOICE_REC.transcript || '').trim();
+    _cleanupVoice();
+    VOICE_REC.transcript = '';
+    if(!send) return;
+    await uploadVoiceMessage(file, transcript);
+  };
+  mr.stop();
+}
+
+async function uploadVoiceMessage(file, transcript){
+  if(!STATE.currentChat) return;
+  if(file.size > 5 * 1024 * 1024){ toast('Sprachnachricht zu groß ('+fmtBytes(file.size)+')', 'error'); return; }
+  const sendBtn = document.getElementById('chatSendBtn');
+  sendBtn.disabled = true;
+  toast('Sprachnachricht wird gesendet...');
+  try {
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    const created = new Date().toISOString();
+    const rec = await atWrite('Messages', {
+      msg_id: 'm_' + Date.now(),
+      chat_id: STATE.currentChat.fields.chat_id,
+      sender_key: APP_KEYS.user.api_key,
+      sender_name: APP_KEYS.user.name || APP_KEYS.user.api_key,
+      msg_type: 'voice',
+      content: transcript || '',
+      created,
+      lang: myLang(),
+    });
+    const upRes = await fetch(
+      'https://content.airtable.com/v0/' + APP_CONFIG.APP_BASE_ID + '/' + rec.id + '/attachments/uploadAttachment',
+      { method:'POST',
+        headers:{'Authorization':'Bearer '+APP_KEYS.airtableWriteKey,'Content-Type':'application/json'},
+        body: JSON.stringify({ contentType: file.type || 'audio/webm', file: base64, filename: file.name }) }
+    );
+    if(!upRes.ok){ const e = await upRes.text(); throw new Error('Upload: '+e); }
+    await atUpdate('Chats', STATE.currentChat.id, {
+      last_msg: '🎙 ' + (transcript ? transcript.slice(0, 80) : 'Sprachnachricht'),
+      last_msg_at: created,
+    });
+    await loadMessages();
+    renderMessages();
+    toast('Sprachnachricht gesendet', 'success');
+  } catch(e){
+    toast(e.message || 'Senden fehlgeschlagen', 'error');
+  } finally {
+    sendBtn.disabled = false;
+  }
 }
 
 async function compressImage(file, maxDim = 1920, quality = 0.82){
