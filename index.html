@@ -288,6 +288,25 @@ button{cursor:pointer;border:none;background:none}
 .settings-action{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;font-weight:700;padding:6px 10px;border:1px solid var(--accent);border-radius:5px}
 .settings-action.danger{color:var(--danger);border-color:var(--danger)}
 
+.kat-section{margin-bottom:22px}
+.kat-section-title{font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--text-dim);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--rule);padding-bottom:8px}
+.kat-section-title .add-btn{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;font-weight:700;padding:5px 9px;border:1px solid var(--accent);border-radius:5px;background:transparent}
+.kat-section-title .add-btn:active{background:rgba(56,189,248,.10)}
+.kat-row{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--surface);border:1px solid var(--rule-strong);border-radius:8px;margin-bottom:5px}
+.kat-row .kat-info{flex:1;min-width:0}
+.kat-row .kat-name{font-size:13.5px;font-weight:600}
+.kat-row .kat-meta{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+.kat-row .kat-actions{display:flex;gap:5px}
+.kat-row .kat-btn{width:30px;height:30px;display:flex;align-items:center;justify-content:center;background:transparent;border:1px solid var(--rule-strong);border-radius:5px;color:var(--text-dim);font-size:13px}
+.kat-row .kat-btn:active{background:var(--surface-strong)}
+.kat-row .kat-btn.del{color:var(--danger);border-color:rgba(248,113,113,.30)}
+.kat-edit-row{padding:10px 12px;background:rgba(56,189,248,.06);border:1px solid var(--accent);border-radius:8px;margin-bottom:5px}
+.kat-edit-row .text-input{padding:8px 10px;font-size:12.5px;margin-bottom:6px;font-family:inherit}
+.kat-edit-row .row-flex{display:flex;gap:6px;margin-top:6px}
+.kat-edit-row .row-flex .text-input{flex:1;margin-bottom:0}
+.kat-edit-row .save-btn{padding:8px 14px;background:var(--accent);color:var(--on-accent);border:none;border-radius:6px;font-weight:700;font-size:12px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.08em}
+.kat-edit-row .cancel-btn{padding:8px 14px;background:transparent;color:var(--text-dim);border:1px solid var(--rule-strong);border-radius:6px;font-weight:600;font-size:12px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.08em}
+
 /* ===== TOAST ===== */
 .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(10,20,40,.95);border:1px solid var(--rule-strong);padding:10px 18px;border-radius:8px;font-size:13px;color:var(--text);z-index:300;animation:toastIn .25s;max-width:90vw;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.4)}
 .toast.error{border-color:var(--danger);color:var(--danger)}
@@ -434,13 +453,24 @@ button{cursor:pointer;border:none;background:none}
   </div>
 </div>
 
+<!-- KATALOG-ADMIN MODAL -->
+<div class="modal" id="katalogModal">
+  <div class="modal-sheet" style="max-height:92vh">
+    <div class="modal-header">
+      <div class="modal-title">Katalog verwalten</div>
+      <button class="modal-close" onclick="closeModal('katalogModal')">×</button>
+    </div>
+    <div class="modal-body" id="katalogModalBody"></div>
+  </div>
+</div>
+
 <div class="version-tag" id="versionTag"></div>
 
 <script>
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v1.1.1';
+const APP_VERSION = 'v1.2';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -450,8 +480,8 @@ const APP_CONFIG = {
 };
 let APP_KEYS = { airtableWriteKey: null, anthropicKey: null, user: null };
 
-// EXPERTISE-DATEN
-const MODELS = [
+// EXPERTISE-DATEN — werden aus Airtable "Katalog" geladen, dies ist nur Fallback/Seed
+const SEED_MODELS = [
   {name:'Schindler 3300', meta:'SEILAUFZUG · STANDARD'},
   {name:'Schindler 5500', meta:'SEILAUFZUG · MID-RISE'},
   {name:'KONE Monospace', meta:'MASCHINENRAUMLOS'},
@@ -459,20 +489,24 @@ const MODELS = [
   {name:'OTIS Gen2', meta:'GURT-AUFZUG'},
   {name:'Schmitt+Sohn', meta:'STANDARD'},
 ];
-const CONTROLS = [
+const SEED_CONTROLS = [
   {name:'TMS9000', meta:'STEUERUNG'},
   {name:'Kollmorgen', meta:'STEUERUNG'},
   {name:'Ziehl-Abegg', meta:'FU + STEUERUNG'},
   {name:'Böhnke+Partner', meta:'STEUERUNG'},
   {name:'New Lift', meta:'STEUERUNG'},
 ];
-const COMPONENTS = [
+const SEED_COMPONENTS = [
   {name:'Türsysteme', meta:'KOMPONENTE'},
   {name:'Frequenzumrichter', meta:'KOMPONENTE'},
   {name:'Hydraulik', meta:'KOMPONENTE'},
   {name:'Notrufanlagen', meta:'KOMPONENTE'},
   {name:'Sicherheitskreis', meta:'KOMPONENTE'},
 ];
+let MODELS = [...SEED_MODELS];
+let CONTROLS = [...SEED_CONTROLS];
+let COMPONENTS = [...SEED_COMPONENTS];
+let KATALOG_RECORDS = []; // raw Airtable records für Admin-Edit
 
 // ============================================================
 // STATE
@@ -622,11 +656,9 @@ async function doLogin(){
 async function afterLogin(){
   showView('loading');
   try {
-    // Tabellen sicherstellen
     await ensureAllTables();
-    // Eigenes Profil laden / heartbeat
+    await loadKatalog();
     await loadOrCreateMyProfile();
-    // Onboarding nötig?
     if(!STATE.myProfile.fields.onboarding_done){
       showView('onboard');
       onboardInit();
@@ -668,6 +700,46 @@ async function ensureAllTables(){
     { name:'content', type:'multilineText' },
     { name:'created', type:'singleLineText' },
   ]);
+  await ensureTable('Katalog', [
+    { name:'name', type:'singleLineText' },
+    { name:'meta', type:'singleLineText' },
+    { name:'category', type:'singleLineText' },
+    { name:'sort_order', type:'number', options:{ precision:0 } },
+  ]);
+}
+
+async function loadKatalog(){
+  const recs = await atRead('Katalog');
+  KATALOG_RECORDS = recs;
+  // Wenn Katalog leer ist → mit Defaults seeden
+  if(recs.length === 0){
+    await seedKatalog();
+    KATALOG_RECORDS = await atRead('Katalog');
+  }
+  applyKatalog();
+}
+
+async function seedKatalog(){
+  const seed = [
+    ...SEED_MODELS.map((x,i)=>({...x, category:'model', sort_order:i})),
+    ...SEED_CONTROLS.map((x,i)=>({...x, category:'control', sort_order:i})),
+    ...SEED_COMPONENTS.map((x,i)=>({...x, category:'component', sort_order:i})),
+  ];
+  for(const item of seed){
+    try { await atWrite('Katalog', item); } catch(e){ console.warn('Seed fehlgeschlagen:', item, e); }
+  }
+}
+
+function applyKatalog(){
+  const sortFn = (a,b) => (a.fields.sort_order||0) - (b.fields.sort_order||0) || (a.fields.name||'').localeCompare(b.fields.name||'');
+  const filterCat = (cat) => KATALOG_RECORDS.filter(r => r.fields.category === cat).sort(sortFn).map(r => ({ name: r.fields.name || '', meta: r.fields.meta || '' }));
+  MODELS = filterCat('model');
+  CONTROLS = filterCat('control');
+  COMPONENTS = filterCat('component');
+}
+
+function isAdmin(){
+  return (APP_KEYS.user?.role || '').toLowerCase() === 'admin';
 }
 
 async function loadOrCreateMyProfile(){
@@ -1426,6 +1498,7 @@ function openSettings(){
     <div class="settings-row"><div class="settings-label">Steuerungen</div><div class="settings-value">${esc(parseList(p.controls).join(', ') || '—')}</div></div>
     <div class="settings-row"><div class="settings-label">Komponenten</div><div class="settings-value">${esc(parseList(p.components).join(', ') || '—')}</div></div>
     <div class="settings-row"><div class="settings-label">Expertise ändern</div><button class="settings-action" onclick="reopenOnboarding()">Bearbeiten</button></div>
+    ${isAdmin() ? '<div class="settings-row"><div><div class="settings-label">Katalog verwalten</div><div class="settings-value" style="margin-top:3px">Modelle · Steuerungen · Komponenten</div></div><button class="settings-action" onclick="openKatalogModal()">Öffnen</button></div>' : ''}
     <div class="settings-row"><div class="settings-label">Logout</div><button class="settings-action danger" onclick="logout()">Abmelden</button></div>
     <div class="settings-row"><div class="settings-label">Version</div><div class="settings-value">${APP_VERSION}</div></div>
   `;
@@ -1435,6 +1508,113 @@ function reopenOnboarding(){
   closeModal('settingsModal');
   showView('onboard');
   onboardInit();
+}
+
+// ============================================================
+// KATALOG-ADMIN
+// ============================================================
+let KAT_EDITING = null; // recordId being edited, or 'new:<category>'
+
+function openKatalogModal(){
+  if(!isAdmin()){ toast('Nur Admins', 'error'); return; }
+  KAT_EDITING = null;
+  closeModal('settingsModal');
+  renderKatalogModal();
+  openModal('katalogModal');
+}
+
+function renderKatalogModal(){
+  const body = document.getElementById('katalogModalBody');
+  const cats = [
+    { key:'model', label:'Aufzugsmodelle' },
+    { key:'control', label:'Steuerungen' },
+    { key:'component', label:'Komponenten' },
+  ];
+  let html = '';
+  cats.forEach(cat => {
+    const items = KATALOG_RECORDS
+      .filter(r => r.fields.category === cat.key)
+      .sort((a,b)=>(a.fields.sort_order||0)-(b.fields.sort_order||0) || (a.fields.name||'').localeCompare(b.fields.name||''));
+    html += '<div class="kat-section">';
+    html += '<div class="kat-section-title">'+cat.label+' <button class="add-btn" onclick="katalogStartNew(\''+cat.key+'\')">+ Neu</button></div>';
+    if(KAT_EDITING === 'new:'+cat.key){
+      html += renderKatalogEditRow({ category: cat.key });
+    }
+    if(items.length === 0 && KAT_EDITING !== 'new:'+cat.key){
+      html += '<div style="color:var(--text-very-dim);font-size:12px;padding:8px 0;font-style:italic">Keine Einträge</div>';
+    }
+    items.forEach(rec => {
+      if(KAT_EDITING === rec.id){
+        html += renderKatalogEditRow(rec.fields, rec.id);
+      } else {
+        html += '<div class="kat-row">';
+        html += '<div class="kat-info"><div class="kat-name">'+esc(rec.fields.name||'?')+'</div><div class="kat-meta">'+esc(rec.fields.meta||'—')+'</div></div>';
+        html += '<div class="kat-actions">';
+        html += '<button class="kat-btn" onclick="katalogStartEdit(\''+rec.id+'\')" title="Bearbeiten">✎</button>';
+        html += '<button class="kat-btn del" onclick="katalogDelete(\''+rec.id+'\')" title="Löschen">×</button>';
+        html += '</div></div>';
+      }
+    });
+    html += '</div>';
+  });
+  body.innerHTML = html;
+}
+
+function renderKatalogEditRow(fields, recordId){
+  const isNew = !recordId;
+  const idAttr = isNew ? 'new_'+fields.category : 'edit_'+recordId;
+  return `<div class="kat-edit-row">
+    <input type="text" class="text-input" id="katName_${idAttr}" placeholder="Name (z.B. Schindler 3300)" value="${esc(fields.name||'')}" autocomplete="off">
+    <input type="text" class="text-input" id="katMeta_${idAttr}" placeholder="Meta (z.B. SEILAUFZUG · STANDARD)" value="${esc(fields.meta||'')}" autocomplete="off">
+    <div class="row-flex" style="justify-content:flex-end">
+      <button class="cancel-btn" onclick="katalogCancelEdit()">Abbrechen</button>
+      <button class="save-btn" onclick="katalogSave('${idAttr}','${fields.category}','${recordId||''}')">Speichern</button>
+    </div>
+  </div>`;
+}
+
+function katalogStartNew(category){ KAT_EDITING = 'new:'+category; renderKatalogModal(); }
+function katalogStartEdit(recordId){ KAT_EDITING = recordId; renderKatalogModal(); }
+function katalogCancelEdit(){ KAT_EDITING = null; renderKatalogModal(); }
+
+async function katalogSave(idAttr, category, recordId){
+  const name = document.getElementById('katName_'+idAttr).value.trim();
+  const meta = document.getElementById('katMeta_'+idAttr).value.trim();
+  if(!name){ toast('Name fehlt', 'error'); return; }
+  try {
+    if(recordId){
+      await atUpdate('Katalog', recordId, { name, meta });
+    } else {
+      const maxSort = Math.max(0, ...KATALOG_RECORDS.filter(r => r.fields.category === category).map(r => r.fields.sort_order||0));
+      await atWrite('Katalog', { name, meta, category, sort_order: maxSort + 1 });
+    }
+    KAT_EDITING = null;
+    KATALOG_RECORDS = await atRead('Katalog');
+    applyKatalog();
+    renderKatalogModal();
+    // Falls die Konstellations-Filter offen sind, neu rendern
+    if(STATE.activeTab === 'konstellation'){ renderFilterStrip(); }
+    toast('Gespeichert', 'success');
+  } catch(e){ toast(e.message || 'Fehler beim Speichern', 'error'); }
+}
+
+async function katalogDelete(recordId){
+  const rec = KATALOG_RECORDS.find(r => r.id === recordId);
+  if(!rec) return;
+  if(!confirm('Eintrag "'+(rec.fields.name||'?')+'" wirklich löschen?')) return;
+  try {
+    if(!APP_KEYS.airtableWriteKey) throw new Error('Bitte einloggen');
+    const res = await fetch(
+      'https://api.airtable.com/v0/' + APP_CONFIG.APP_BASE_ID + '/Katalog/' + recordId,
+      { method:'DELETE', headers: { 'Authorization':'Bearer '+APP_KEYS.airtableWriteKey } }
+    );
+    if(!res.ok) throw new Error('Löschen fehlgeschlagen');
+    KATALOG_RECORDS = await atRead('Katalog');
+    applyKatalog();
+    renderKatalogModal();
+    if(STATE.activeTab === 'konstellation'){ renderFilterStrip(); }
+    toast('Gelöscht', 'success');
+  } catch(e){ toast(e.message, 'error'); }
 }
 
 // ============================================================
