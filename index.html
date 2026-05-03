@@ -173,7 +173,7 @@ button{cursor:pointer;border:none;background:none}
 .av-8{background:linear-gradient(135deg,#fda4af,#fb7185);color:#4c0519}
 
 /* ===== BOTTOM BAR ===== */
-.bottom-bar{margin-bottom:calc(-1 * env(safe-area-inset-bottom));padding:12px 18px calc(env(safe-area-inset-bottom) + 4px);border-top:1px solid var(--rule);background:var(--phone-screen);flex-shrink:0;display:flex;gap:8px}
+.bottom-bar{margin-bottom:calc(-1 * env(safe-area-inset-bottom));padding:10px 18px 8px;border-top:1px solid var(--rule);background:var(--phone-screen);flex-shrink:0;display:flex;gap:8px}
 .bottom-bar .action-button{flex:1}
 .bottom-bar .action-button.cancel{flex:0 0 50px}
 .bottom-bar #aiOnlyBtn{flex:0 0 auto}
@@ -280,7 +280,7 @@ button{cursor:pointer;border:none;background:none}
 .modal.active{display:flex}
 .modal-sheet{
   width:100%;background:var(--phone-screen);border-radius:18px 18px 0 0;
-  max-height:85vh;display:flex;flex-direction:column;animation:slideUp .25s;
+  max-height:calc(85vh - env(safe-area-inset-top, 0px));display:flex;flex-direction:column;animation:slideUp .25s;
   border-top:1px solid var(--rule-strong);
 }
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
@@ -383,6 +383,7 @@ button{cursor:pointer;border:none;background:none}
     <div class="onboard-content" id="onboardContent"></div>
     <div class="bottom-bar">
       <button class="action-button cancel" id="obBackBtn" onclick="onboardBack()" style="display:none">←</button>
+      <button class="action-button" id="obAbortBtn" onclick="onboardAbort()" style="display:none;flex:0 0 auto;padding:14px 14px">Abbrechen</button>
       <button class="action-button primary" id="obNextBtn" onclick="onboardNext()">Weiter →</button>
     </div>
   </div>
@@ -474,7 +475,7 @@ button{cursor:pointer;border:none;background:none}
 
 <!-- KATALOG-ADMIN MODAL -->
 <div class="modal" id="katalogModal">
-  <div class="modal-sheet" style="max-height:92vh">
+  <div class="modal-sheet">
     <div class="modal-header">
       <div class="modal-title">Katalog verwalten</div>
       <button class="modal-close" onclick="closeModal('katalogModal')">×</button>
@@ -489,7 +490,7 @@ button{cursor:pointer;border:none;background:none}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v1.3.4';
+const APP_VERSION = 'v1.3.5';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -826,6 +827,9 @@ function onboardRender(){
     dot.className = 'progress-dot' + (i<OB_STEP?' done':(i===OB_STEP?' active':''));
   }
   document.getElementById('obBackBtn').style.display = OB_STEP>0 ? 'flex' : 'none';
+  // Abbrechen-Button nur wenn User schon onboarded ist (Edit-Modus aus Settings)
+  const canAbort = STATE.myProfile?.fields.onboarding_done === true;
+  document.getElementById('obAbortBtn').style.display = canAbort ? 'inline-flex' : 'none';
   document.getElementById('obNextBtn').textContent = OB_STEP===3 ? 'Loslegen →' : 'Weiter →';
   const c = document.getElementById('onboardContent');
   if(OB_STEP===0){
@@ -871,6 +875,12 @@ function toggleExpertise(key, val){
   onboardRender();
 }
 function onboardBack(){ if(OB_STEP>0){ OB_STEP--; onboardRender(); } }
+function onboardAbort(){
+  // Nur erlaubt wenn User bereits onboarded — verwirft alle Änderungen
+  if(!STATE.myProfile?.fields.onboarding_done) return;
+  OB_STEP = 0;
+  showView('home');
+}
 async function onboardNext(){
   if(OB_STEP<3){ OB_STEP++; onboardRender(); return; }
   // Speichern
@@ -1661,6 +1671,11 @@ async function katalogDelete(recordId){
 // ============================================================
 function openModal(id){ document.getElementById(id).classList.add('active'); }
 function closeModal(id){ document.getElementById(id).classList.remove('active'); }
+
+// Backdrop-Click schließt jedes Modal
+document.querySelectorAll('.modal').forEach(m => {
+  m.addEventListener('click', e => { if(e.target === m) closeModal(m.id); });
+});
 
 // ============================================================
 // VIEW SWITCH
