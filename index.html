@@ -231,6 +231,8 @@ button{cursor:pointer;border:none;background:none}
 
 /* ===== TABS ===== */
 .tabs{display:flex;border-bottom:1px solid var(--rule);flex-shrink:0;background:var(--phone-screen)}
+.tab-content{display:none;flex-direction:column;flex:1;min-height:0}
+.tab-content.is-active{display:flex}
 .tab{
   flex:1;padding:18px 8px;font-family:'JetBrains Mono',monospace;font-size:11px;
   text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);font-weight:600;
@@ -493,7 +495,7 @@ button{cursor:pointer;border:none;background:none}
     </div>
 
     <!-- KONSTELLATION TAB -->
-    <div id="tab-content-konstellation" style="display:flex;flex-direction:column;flex:1;min-height:0">
+    <div id="tab-content-konstellation" class="tab-content is-active">
       <div class="filter-strip" id="filterStrip"></div>
       <div class="constellation" id="constellation">
         <div class="constellation-bg"></div>
@@ -505,7 +507,7 @@ button{cursor:pointer;border:none;background:none}
     </div>
 
     <!-- CHATS TAB -->
-    <div id="tab-content-chats" style="display:none;flex-direction:column;flex:1;min-height:0">
+    <div id="tab-content-chats" class="tab-content">
       <div class="chats-list" id="chatsList"></div>
     </div>
   </div>
@@ -739,7 +741,7 @@ window.fetch = async function(input, init){
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v1.9.4';
+const APP_VERSION = 'v1.9.5';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -2545,9 +2547,11 @@ function switchTab(tab){
   const ccc = document.getElementById('tab-content-chats');
   if(tk) tk.classList.toggle('active', tab==='konstellation');
   if(tc) tc.classList.toggle('active', tab==='chats');
-  if(cck) cck.style.display = tab==='konstellation' ? 'flex' : 'none';
-  if(ccc) ccc.style.display = tab==='chats' ? 'flex' : 'none';
-  debugLog('switchTab('+tab+') DOM: tk='+!!tk+' tc='+!!tc+' cck='+!!cck+' ccc='+!!ccc);
+  if(cck) cck.classList.toggle('is-active', tab==='konstellation');
+  if(ccc) ccc.classList.toggle('is-active', tab==='chats');
+  // iOS Safari Safety: Force Reflow damit Layout sofort updated
+  if(ccc) void ccc.offsetHeight;
+  debugLog('switchTab('+tab+') class-toggle done');
   if(tab==='chats'){
     debugLog('renderChatsList ('+(STATE.chats?.length||0)+' chats)');
     try { renderChatsList(); }
