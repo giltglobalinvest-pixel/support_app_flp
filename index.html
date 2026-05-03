@@ -63,6 +63,27 @@ button{cursor:pointer;border:none;background:none}
 .user-bar-role{padding:2px 7px;border-radius:3px;font-weight:700;font-size:9px;letter-spacing:.1em;flex-shrink:0;background:rgba(56,189,248,.12);color:var(--accent)}
 .user-bar-role.admin{background:rgba(192,132,252,.18);color:var(--ai)}
 .user-bar-version{flex-shrink:0;color:var(--text-very-dim)}
+.user-bar-token{flex-shrink:0;background:rgba(251,191,36,.12);color:#fbbf24;padding:2px 7px;border-radius:3px;font-weight:700;font-size:9.5px;letter-spacing:.06em;cursor:pointer}
+.user-bar-token:active{transform:scale(.95)}
+
+.lead-row{display:flex;align-items:center;gap:10px;padding:11px 12px;background:var(--surface);border:1px solid var(--rule-strong);border-radius:8px;margin-bottom:5px}
+.lead-row.me{border-color:var(--accent);background:rgba(56,189,248,.06)}
+.lead-row .rank{font-family:'Archivo',sans-serif;font-weight:900;font-stretch:75%;font-size:18px;color:var(--text-dim);min-width:28px;text-align:center}
+.lead-row .rank.top1{color:#fbbf24}
+.lead-row .rank.top2{color:#cbd5e1}
+.lead-row .rank.top3{color:#fb923c}
+.lead-row .body{flex:1;min-width:0}
+.lead-row .name{font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:6px}
+.lead-row .meta{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;margin-top:3px}
+.lead-row .pts{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:800;color:var(--accent);min-width:60px;text-align:right}
+
+.medal-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:14px}
+.medal-tile{padding:14px 12px;background:var(--surface);border:1px solid var(--rule-strong);border-radius:10px;text-align:center}
+.medal-tile.unlocked{border-color:var(--accent);background:rgba(56,189,248,.08)}
+.medal-tile.locked{opacity:.4}
+.medal-tile .icon{font-size:28px;margin-bottom:4px}
+.medal-tile .label{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+.medal-tile .desc{font-size:10.5px;color:var(--text-dim);margin-top:3px;line-height:1.3}
 .app-logo{font-family:'Archivo',sans-serif;font-weight:900;font-stretch:75%;font-size:16px;letter-spacing:.02em;display:flex;align-items:center;gap:8px}
 .app-logo .dot{width:7px;height:7px;background:var(--accent);border-radius:50%;box-shadow:0 0 10px var(--accent)}
 .profile-mini{
@@ -637,6 +658,17 @@ button{cursor:pointer;border:none;background:none}
   </div>
 </div>
 
+<!-- LEADERBOARD MODAL -->
+<div class="modal" id="leaderboardModal">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <div class="modal-title">Punkte & Medaillen</div>
+      <button class="modal-close" onclick="closeModal('leaderboardModal')">×</button>
+    </div>
+    <div class="modal-body" id="leaderboardBody"></div>
+  </div>
+</div>
+
 <!-- ADMIN: USER-VERWALTUNG MODAL -->
 <div class="modal" id="userMgmtModal">
   <div class="modal-sheet">
@@ -743,7 +775,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.3';
+const APP_VERSION = 'v2.4';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -1043,6 +1075,8 @@ async function ensureAllTables(){
   await ensureField('TechnikerProfile', 'frequenzumrichter', 'multilineText');
   await ensureField('TechnikerProfile', 'avatar', 'multipleAttachments');
   await ensureField('TechnikerProfile', 'avatar_preset', 'singleLineText');
+  await ensureField('TechnikerProfile', 'tokens', 'number');
+  await ensureField('TechnikerProfile', 'points', 'number');
   await ensureTable('Chats', [
     { name:'chat_id', type:'singleLineText' },
     { name:'title', type:'singleLineText' },
@@ -1152,6 +1186,76 @@ function applyKatalog(){
 function isAdmin(){
   const r = ((APP_KEYS.user?.role || '') + '').trim().toLowerCase();
   return r === 'admin' || r.includes('admin');
+}
+
+// ============================================================
+// GAMIFICATION — Tokens, Punkte, Medaillen
+// ============================================================
+const TOKEN_START = 5;            // Start-Tokens für neue User
+const TOKEN_COST_CHAT = 1;        // Kosten für neuen Chat
+const POINTS_MESSAGE = 1;         // Punkte pro Nachricht
+const POINTS_RESOLVED = 5;        // Punkte wenn Chat als gelöst markiert
+const POINTS_WISSEN = 8;          // Punkte pro hochgeladenem PDF (analysiert)
+const POINTS_VOICE = 2;           // Punkte für Sprachnachrichten
+
+const MEDALS = [
+  { key:'diamond', label:'Diamond', icon:'💎', threshold:500, color:'#7dd3fc' },
+  { key:'gold',    label:'Gold',    icon:'🥇', threshold:200, color:'#fbbf24' },
+  { key:'silver',  label:'Silber',  icon:'🥈', threshold:50,  color:'#cbd5e1' },
+  { key:'bronze',  label:'Bronze',  icon:'🥉', threshold:10,  color:'#fb923c' },
+];
+function tierFor(points){
+  for(const m of MEDALS) if(points >= m.threshold) return m;
+  return null;
+}
+
+function myTokens(){
+  return Number(STATE.myProfile?.fields?.tokens ?? TOKEN_START);
+}
+function myPoints(){
+  return Number(STATE.myProfile?.fields?.points ?? 0);
+}
+
+async function chargeTokens(amount, reason){
+  if(!STATE.myProfile) return false;
+  const current = myTokens();
+  if(current < amount){
+    toast('Nicht genug Tokens ('+current+'/'+amount+'). Frag den Admin oder verdiene welche durch Beteiligung.', 'error');
+    return false;
+  }
+  const newBalance = current - amount;
+  try {
+    await atUpdate('TechnikerProfile', STATE.myProfile.id, { tokens: newBalance });
+    STATE.myProfile.fields.tokens = newBalance;
+    renderUserBar();
+    return true;
+  } catch(e){ toast('Token-Fehler: '+e.message, 'error'); return false; }
+}
+
+async function awardTokens(tokens, points, reason){
+  if(!STATE.myProfile) return;
+  const newTokens = myTokens() + tokens;
+  const newPoints = myPoints() + points;
+  try {
+    await atUpdate('TechnikerProfile', STATE.myProfile.id, { tokens: newTokens, points: newPoints });
+    STATE.myProfile.fields.tokens = newTokens;
+    STATE.myProfile.fields.points = newPoints;
+    renderUserBar();
+    // Kleiner Hinweis-Toast
+    if(points > 0) toast('+'+points+' Punkte ('+(reason||'')+')', 'success');
+  } catch(e){}
+}
+
+async function adminGrantTokens(profileRecordId, amount){
+  try {
+    const recs = await atRead('TechnikerProfile');
+    const target = recs.find(r => r.id === profileRecordId);
+    if(!target) throw new Error('Profil nicht gefunden');
+    const newBalance = (target.fields.tokens || 0) + amount;
+    await atUpdate('TechnikerProfile', profileRecordId, { tokens: newBalance });
+    toast('+'+amount+' Tokens vergeben', 'success');
+    return true;
+  } catch(e){ toast(e.message, 'error'); return false; }
 }
 
 // ============================================================
@@ -1298,6 +1402,8 @@ async function loadOrCreateMyProfile(){
       components: '[]',
       last_seen: new Date().toISOString(),
       onboarding_done: false,
+      tokens: TOKEN_START,
+      points: 0,
     });
     STATE.myProfile = created;
   }
@@ -1594,11 +1700,16 @@ function renderUserBar(){
   const u = APP_KEYS.user || {};
   const role = (u.role || 'user').toLowerCase();
   const roleLabel = role === 'admin' ? 'ADMIN' : 'USER';
+  const tokens = STATE.myProfile ? myTokens() : 0;
+  const points = STATE.myProfile ? myPoints() : 0;
+  const tier = tierFor(points);
+  const tokensHtml = STATE.myProfile ? '<span class="user-bar-token" onclick="openLeaderboard()" title="Klicken für Punkte/Medaillen">🪙 '+tokens+(tier?' · '+tier.icon:'')+(points?' '+points:'')+'</span>' : '';
   const html = `
     <div class="user-bar-left">
       <span class="user-bar-name">${esc(u.name || u.api_key || '—')}</span>
       <span class="user-bar-role ${role==='admin'?'admin':''}">${roleLabel}</span>
     </div>
+    ${tokensHtml}
     <span class="user-bar-version">${APP_VERSION}</span>
   `;
   ['userBarHome','userBarChat'].forEach(id => {
@@ -1886,14 +1997,21 @@ function updateBottomBar(){
 }
 
 async function startAiOnlyChat(){
-  // Falls bereits ein offener KI-Solo-Chat existiert → öffnen statt neu erstellen
   const myKey = APP_KEYS.user.api_key;
+  // Bestehender offener KI-Solo-Chat → öffnen (kostet kein Token)
   const existing = STATE.chats.find(c => {
     const ps = parseList(c.fields.participants);
     return ps.length === 1 && ps[0] === myKey && c.fields.status !== 'resolved';
   });
   if(existing){ openChat(existing); return; }
-  showPreChat(async (tags) => { await actuallyStartAiOnlyChat(tags); });
+  if(myTokens() < TOKEN_COST_CHAT){
+    toast('Nicht genug Tokens ('+myTokens()+'/'+TOKEN_COST_CHAT+'). Verdiene welche oder frag den Admin.', 'error');
+    return;
+  }
+  showPreChat(async (tags) => {
+    if(!await chargeTokens(TOKEN_COST_CHAT, 'ki-chat')) return;
+    await actuallyStartAiOnlyChat(tags);
+  });
 }
 
 async function actuallyStartAiOnlyChat(tags){
@@ -1985,7 +2103,14 @@ function applyFilters(){
 // ============================================================
 async function startChatWithSelected(){
   if(STATE.selected.size === 0) return;
-  showPreChat(async (tags) => { await actuallyStartChat(tags); });
+  if(myTokens() < TOKEN_COST_CHAT){
+    toast('Nicht genug Tokens ('+myTokens()+'/'+TOKEN_COST_CHAT+'). Verdiene welche durch Chat-Beteiligung oder frag den Admin.', 'error');
+    return;
+  }
+  showPreChat(async (tags) => {
+    if(!await chargeTokens(TOKEN_COST_CHAT, 'chat-start')) return;
+    await actuallyStartChat(tags);
+  });
 }
 
 async function actuallyStartChat(tags){
@@ -2485,6 +2610,7 @@ async function uploadVoiceMessage(file, transcript){
     await loadMessages();
     renderMessages();
     toast('Sprachnachricht gesendet', 'success');
+    if(!isAiOnlyChat(STATE.currentChat)) awardTokens(0, POINTS_VOICE, 'Sprachnachricht').catch(()=>{});
     // KI triggern bei KI-Solo-Chat oder @KI im Transkript
     const triggerAi = isAiOnlyChat(STATE.currentChat) || (transcript && /@ki\b/i.test(transcript));
     if(triggerAi){
@@ -2637,6 +2763,7 @@ async function indexChatPdfToWissen(filename, base64){
     await analyzeWissenPdf(rec.id, base64);
     await loadWissen();
     toast('PDF in Wissensbasis aufgenommen ('+itemName+')', 'success');
+    awardTokens(0, POINTS_WISSEN, 'Wissen-PDF aus Chat').catch(()=>{});
   } catch(e){ toast('Wissen-Indexierung: '+e.message, 'error'); }
 }
 
@@ -2683,6 +2810,10 @@ async function sendChatMessage(){
     await loadMessages();
     renderMessages();
 
+    // Punkte für Beteiligung (nur wenn nicht eigener Solo-KI-Chat)
+    if(!isAiOnlyChat(STATE.currentChat)){
+      awardTokens(0, POINTS_MESSAGE, 'Nachricht').catch(()=>{});
+    }
     // KI triggern bei @KI ODER immer im Solo-KI-Chat
     if(isAiOnlyChat(STATE.currentChat) || /@ki\b/i.test(txt)){
       await callAI(txt);
@@ -2806,6 +2937,7 @@ async function resolveCurrentChat(){
       created: new Date().toISOString(),
     });
     toast('Als gelöst markiert · Wissens-Extraktion läuft...', 'success');
+    awardTokens(0, POINTS_RESOLVED, 'Chat gelöst').catch(()=>{});
     await loadMessages();
     document.getElementById('chatMetaText').textContent = 'GELÖST';
     renderMessages();
@@ -2970,6 +3102,7 @@ function openSettings(){
     <div class="settings-row"><div class="settings-label">Sprache</div><div style="display:flex;gap:6px">${LANGUAGES.map(l => '<button class="settings-action" style="'+(myLang()===l.code?'background:var(--accent);color:var(--on-accent);border-color:var(--accent)':'')+'" onclick="setMyLanguage(\''+l.code+'\').then(()=>openSettings())">'+l.label+'</button>').join('')}</div></div>
     <div class="settings-row"><div class="settings-label">Expertise ändern</div><button class="settings-action" onclick="reopenOnboarding()">Bearbeiten</button></div>
     <div class="settings-row"><div><div class="settings-label">Wissensbasis</div><div class="settings-value" style="margin-top:3px">PDFs hochladen · KI-Analyse</div></div><button class="settings-action" onclick="closeModal('settingsModal');openWissenModal()">Öffnen</button></div>
+    <div class="settings-row"><div><div class="settings-label">Punkte & Medaillen</div><div class="settings-value" style="margin-top:3px">🪙 ${myTokens()} Tokens · ${myPoints()} Punkte${tierFor(myPoints())?' · '+tierFor(myPoints()).icon:''}</div></div><button class="settings-action" onclick="closeModal('settingsModal');openLeaderboard()">Öffnen</button></div>
     ${isAdmin() ? '<div class="settings-row"><div><div class="settings-label">Katalog verwalten</div><div class="settings-value" style="margin-top:3px">Modelle · Steuerungen · FU · Komponenten</div></div><button class="settings-action" onclick="closeModal(\'settingsModal\');openKatalogModal()">Öffnen</button></div>' : ''}
     ${isAdmin() ? '<div class="settings-row"><div><div class="settings-label">User-Verwaltung</div><div class="settings-value" style="margin-top:3px">Liste + Filter</div></div><button class="settings-action" onclick="openUserMgmt()">Öffnen</button></div>' : ''}
     ${isAdmin() ? '<div class="settings-row"><div><div class="settings-label">Dashboard</div><div class="settings-value" style="margin-top:3px">Statistiken + Performance</div></div><button class="settings-action" onclick="openDashboard()">Öffnen</button></div>' : ''}
@@ -3113,6 +3246,74 @@ function refreshAvatars(){
 }
 
 // ============================================================
+// LEADERBOARD & MEDAILLEN
+// ============================================================
+function openLeaderboard(){
+  renderLeaderboard();
+  openModal('leaderboardModal');
+}
+
+function renderLeaderboard(){
+  const body = document.getElementById('leaderboardBody');
+  // Profile sortiert nach Punkten (nur aktive + onboarded)
+  const ranked = (STATE.techProfiles || []).filter(p =>
+    STATE.activeKeys.has(p.fields.api_key) && p.fields.onboarding_done === true
+  ).sort((a,b) => (b.fields.points||0) - (a.fields.points||0));
+
+  // Eigener Status
+  const myPts = myPoints();
+  const myToks = myTokens();
+  const myTier = tierFor(myPts);
+  let html = '';
+  // Eigene Status-Karte
+  html += '<div style="padding:14px;background:linear-gradient(135deg, rgba(56,189,248,.12), rgba(192,132,252,.08));border:1px solid var(--accent);border-radius:10px;margin-bottom:14px">';
+  html += '<div style="font-family:Archivo,sans-serif;font-weight:800;font-stretch:75%;font-size:24px;letter-spacing:-.02em">'+esc(APP_KEYS.user.name || APP_KEYS.user.api_key)+'</div>';
+  html += '<div style="display:flex;gap:14px;margin-top:10px;flex-wrap:wrap">';
+  html += '<div><div style="font-family:JetBrains Mono,monospace;font-size:9.5px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.1em">Tokens</div><div style="font-size:24px;font-weight:800;font-family:Archivo,sans-serif;font-stretch:75%;color:#fbbf24">🪙 '+myToks+'</div></div>';
+  html += '<div><div style="font-family:JetBrains Mono,monospace;font-size:9.5px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.1em">Punkte</div><div style="font-size:24px;font-weight:800;font-family:Archivo,sans-serif;font-stretch:75%;color:var(--accent)">'+myPts+'</div></div>';
+  html += '<div><div style="font-family:JetBrains Mono,monospace;font-size:9.5px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.1em">Tier</div><div style="font-size:24px;font-weight:800;font-family:Archivo,sans-serif;font-stretch:75%">'+(myTier?myTier.icon+' '+myTier.label:'—')+'</div></div>';
+  html += '</div></div>';
+  // Verdienst-Hinweise
+  html += '<div style="font-family:JetBrains Mono,monospace;font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px;line-height:1.6">';
+  html += 'Verdienen: '+POINTS_MESSAGE+' Pkt/Nachricht · '+POINTS_VOICE+' Pkt/Voice · '+POINTS_RESOLVED+' Pkt für gelösten Chat · '+POINTS_WISSEN+' Pkt pro Wissens-PDF<br>';
+  html += 'Kosten: '+TOKEN_COST_CHAT+' Token pro neuem Chat';
+  html += '</div>';
+  // Medaillen
+  html += '<div class="dash-section-title">Meine Medaillen</div>';
+  html += '<div class="medal-grid">';
+  MEDALS.slice().reverse().forEach(m => {
+    const unlocked = myPts >= m.threshold;
+    html += '<div class="medal-tile '+(unlocked?'unlocked':'locked')+'"><div class="icon">'+m.icon+'</div><div class="label">'+m.label+'</div><div class="desc">ab '+m.threshold+' Punkten</div></div>';
+  });
+  html += '</div>';
+  // Leaderboard
+  html += '<div class="dash-section-title">Rangliste</div>';
+  if(ranked.length === 0){
+    html += '<div style="color:var(--text-very-dim);font-style:italic;text-align:center;padding:20px">Noch keine Spieler</div>';
+  } else {
+    ranked.forEach((p, i) => {
+      const rank = i + 1;
+      const rankCls = rank===1?'top1':rank===2?'top2':rank===3?'top3':'';
+      const isMe = p.fields.api_key === APP_KEYS.user.api_key;
+      const tier = tierFor(p.fields.points || 0);
+      const photo = avatarPhotoUrl(p);
+      const avPreset = avatarPresetClass(p, i);
+      html += '<div class="lead-row '+(isMe?'me':'')+'">';
+      html += '<div class="rank '+rankCls+'">#'+rank+'</div>';
+      if(photo){
+        html += '<div style="width:34px;height:34px;border-radius:50%;background-image:url('+esc(photo)+');background-size:cover;background-position:center;flex-shrink:0"></div>';
+      } else {
+        html += '<div class="'+avPreset+'" style="width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:Archivo,sans-serif;font-weight:800;font-stretch:75%;font-size:13px;color:#fff;flex-shrink:0">'+esc(makeInitials(p.fields.name||p.fields.api_key))+'</div>';
+      }
+      html += '<div class="body"><div class="name">'+esc(p.fields.name || p.fields.api_key)+(tier?' '+tier.icon:'')+'</div><div class="meta">🪙 '+(p.fields.tokens||0)+' Tokens · '+(tier?tier.label:'kein Tier')+'</div></div>';
+      html += '<div class="pts">'+(p.fields.points||0)+'</div>';
+      html += '</div>';
+    });
+  }
+  body.innerHTML = html;
+}
+
+// ============================================================
 // ADMIN: USER-VERWALTUNG
 // ============================================================
 let USER_MGMT_FILTER = 'alle'; // 'alle' | 'aktiv' | 'inaktiv' | 'admin' | 'onboarded' | 'pending'
@@ -3179,12 +3380,19 @@ function renderUserMgmt(){
       ...(p ? parseList(p.fields.models).slice(0,2) : []),
       ...(p ? parseList(p.fields.controls).slice(0,1) : []),
     ].join(' · ') || (isOnboarded ? '—' : 'Noch nicht onboarded');
+    const tokens = p?.fields?.tokens ?? 0;
+    const points = p?.fields?.points ?? 0;
+    const tier = tierFor(points);
     html += '<div class="user-mgmt-row">';
     html += '<div class="status-dot '+dotCls+'" title="'+dotLabel+'"></div>';
     html += '<div class="info">';
-    html += '<div class="name">'+esc(f.name || f.api_key)+' <span class="role '+(role==='admin'?'admin':'')+'">'+(role==='admin'?'ADMIN':'USER')+'</span></div>';
-    html += '<div class="meta"><span>'+esc(f.api_key)+'</span><span>'+esc(skills)+'</span><span>Letzte Aktivität: '+esc(lastSeenStr)+'</span></div>';
-    html += '</div></div>';
+    html += '<div class="name">'+esc(f.name || f.api_key)+' <span class="role '+(role==='admin'?'admin':'')+'">'+(role==='admin'?'ADMIN':'USER')+'</span>'+(tier?' '+tier.icon:'')+'</div>';
+    html += '<div class="meta"><span>'+esc(f.api_key)+'</span><span>'+esc(skills)+'</span><span>'+esc(lastSeenStr)+'</span><span style="color:#fbbf24;font-weight:700">🪙 '+tokens+'</span><span style="color:var(--accent);font-weight:700">'+points+' Pkt</span></div>';
+    html += '</div>';
+    if(p){
+      html += '<button class="settings-action" style="padding:6px 10px;font-size:9px" onclick="grantTokensPrompt(\''+p.id+'\',\''+esc(f.name||f.api_key)+'\')">+ Tokens</button>';
+    }
+    html += '</div>';
   });
   body.innerHTML = html;
 }
@@ -3192,6 +3400,23 @@ function renderUserMgmt(){
 function setUserMgmtFilter(key){
   USER_MGMT_FILTER = key;
   renderUserMgmt();
+}
+
+async function grantTokensPrompt(profileRecordId, userName){
+  const input = prompt('Wieviele Tokens für '+userName+' vergeben? (negativ = abziehen)');
+  if(input === null) return;
+  const amount = parseInt(input, 10);
+  if(isNaN(amount) || amount === 0) return;
+  if(await adminGrantTokens(profileRecordId, amount)){
+    // Lokale Profile-Liste neu laden + UI refresh
+    STATE.techProfiles = await atRead('TechnikerProfile');
+    if(STATE.myProfile && STATE.myProfile.id === profileRecordId){
+      const refreshed = STATE.techProfiles.find(p => p.id === profileRecordId);
+      if(refreshed) STATE.myProfile = refreshed;
+      renderUserBar();
+    }
+    renderUserMgmt();
+  }
 }
 
 // ============================================================
@@ -3550,6 +3775,7 @@ async function handleWissenUpload(input){
     // KI-Analyse im Hintergrund
     analyzeWissenPdf(rec.id, base64).then(()=>{
       loadWissen().then(renderWissenItem);
+      awardTokens(0, POINTS_WISSEN, 'Wissen-PDF hochgeladen').catch(()=>{});
     }).catch(e => {
       atUpdate('Wissen', rec.id, { status: 'error', summary: 'Analyse-Fehler: ' + (e.message||'unknown') }).catch(()=>{});
     });
