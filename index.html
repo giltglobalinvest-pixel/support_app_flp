@@ -426,8 +426,8 @@ button{cursor:pointer;border:none;background:none}
 .debug-panel .warn{color:#ffd454}
 .debug-panel .err{color:#ff7878}
 .debug-panel .tap{color:#7ddcff}
-.debug-panel .header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #444;padding-bottom:3px;margin-bottom:4px;font-weight:700}
-.debug-panel .header button{background:transparent;border:none;color:#fff;font-size:11px;padding:0 4px;cursor:pointer}
+.debug-panel .header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #444;padding:4px 0;margin-bottom:4px;font-weight:700;position:sticky;top:0;background:rgba(0,0,0,.95);z-index:1}
+.debug-panel .header button{background:transparent;border:none;color:#fff;font-size:13px;padding:4px 8px;cursor:pointer;min-width:28px;min-height:28px}
 
 @media(min-width:768px){
   .app{max-width:440px;margin:0 auto;border-left:1px solid var(--rule);border-right:1px solid var(--rule)}
@@ -738,7 +738,7 @@ window.fetch = async function(input, init){
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v1.9.2';
+const APP_VERSION = 'v1.9.3';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -2518,12 +2518,22 @@ async function resolveCurrentChat(){
 // CHATS LIST (Tab)
 // ============================================================
 function switchTab(tab){
+  debugLog('switchTab('+tab+') start');
   STATE.activeTab = tab;
-  document.getElementById('tab-konstellation').classList.toggle('active', tab==='konstellation');
-  document.getElementById('tab-chats').classList.toggle('active', tab==='chats');
-  document.getElementById('tab-content-konstellation').style.display = tab==='konstellation' ? 'flex' : 'none';
-  document.getElementById('tab-content-chats').style.display = tab==='chats' ? 'flex' : 'none';
-  if(tab==='chats') renderChatsList();
+  const tk = document.getElementById('tab-konstellation');
+  const tc = document.getElementById('tab-chats');
+  const cck = document.getElementById('tab-content-konstellation');
+  const ccc = document.getElementById('tab-content-chats');
+  if(tk) tk.classList.toggle('active', tab==='konstellation');
+  if(tc) tc.classList.toggle('active', tab==='chats');
+  if(cck) cck.style.display = tab==='konstellation' ? 'flex' : 'none';
+  if(ccc) ccc.style.display = tab==='chats' ? 'flex' : 'none';
+  debugLog('switchTab('+tab+') DOM: tk='+!!tk+' tc='+!!tc+' cck='+!!cck+' ccc='+!!ccc);
+  if(tab==='chats'){
+    debugLog('renderChatsList ('+(STATE.chats?.length||0)+' chats)');
+    try { renderChatsList(); }
+    catch(e){ debugLog('renderChatsList ERR: '+e.message, 'err'); }
+  }
 }
 function renderChatsList(){
   const list = document.getElementById('chatsList');
