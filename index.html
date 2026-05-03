@@ -775,7 +775,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.4.2';
+const APP_VERSION = 'v2.4.3';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -1008,7 +1008,8 @@ async function doLogin(){
     await loginWithUserKey(key);
     await afterLogin();
   } catch(e){
-    errEl.textContent = e.message || 'Login fehlgeschlagen';
+    console.error('Login error:', e);
+    errEl.textContent = (e && e.message) ? e.message : ('Login fehlgeschlagen — ' + (e ? String(e).slice(0,200) : 'unbekannter Fehler'));
     btn.disabled = false; btn.innerHTML = 'Einloggen →';
   }
 }
@@ -1390,11 +1391,17 @@ async function loadOrCreateMyProfile(){
   const recs = await atRead('TechnikerProfile', "{api_key}='"+key+"'");
   if(recs.length){
     STATE.myProfile = recs[0];
-    // Heartbeat + Backfill tokens/points falls noch leer (Migration für Pre-v2.4 Profile)
-    const updates = { last_seen: new Date().toISOString() };
-    if(typeof recs[0].fields.tokens !== 'number'){ updates.tokens = TOKEN_START; STATE.myProfile.fields.tokens = TOKEN_START; }
-    if(typeof recs[0].fields.points !== 'number'){ updates.points = 0; STATE.myProfile.fields.points = 0; }
-    await atUpdate('TechnikerProfile', recs[0].id, updates);
+    // Heartbeat (immer notwendig)
+    try { await atUpdate('TechnikerProfile', recs[0].id, { last_seen: new Date().toISOString() }); }
+    catch(e){ console.warn('Heartbeat fehlgeschlagen:', e); }
+    // Backfill tokens/points (best-effort — darf Login nicht brechen)
+    if(typeof recs[0].fields.tokens !== 'number' || typeof recs[0].fields.points !== 'number'){
+      const upd = {};
+      if(typeof recs[0].fields.tokens !== 'number'){ upd.tokens = TOKEN_START; STATE.myProfile.fields.tokens = TOKEN_START; }
+      if(typeof recs[0].fields.points !== 'number'){ upd.points = 0; STATE.myProfile.fields.points = 0; }
+      try { await atUpdate('TechnikerProfile', recs[0].id, upd); }
+      catch(e){ console.warn('Token-Backfill fehlgeschlagen (Felder evtl. nicht in Airtable):', e); }
+    }
   } else {
     const created = await atWrite('TechnikerProfile', {
       api_key: key,
