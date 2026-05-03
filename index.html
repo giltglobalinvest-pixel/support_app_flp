@@ -619,7 +619,7 @@ button{cursor:pointer;border:none;background:none}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v1.6.2';
+const APP_VERSION = 'v1.6.3';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -1068,12 +1068,13 @@ async function loadOrCreateMyProfile(){
 }
 
 async function afterOnboarding(){
-  setLoadingLabel('Daten werden geladen', 'Profile + Wissen + Chats');
+  setLoadingLabel('Profile werden geladen', '');
   await loadHomeData();
   setLoadingLabel('Fertig', '');
   showView('home');
   renderHome();
-  // Heartbeat alle 60s
+  // Wissen + Chats im Hintergrund nachladen (UI bleibt sofort interaktiv)
+  setTimeout(loadHomeDataDeferred, 50);
   if(window._hbInterval) clearInterval(window._hbInterval);
   window._hbInterval = setInterval(()=>{
     if(STATE.myProfile) atUpdate('TechnikerProfile', STATE.myProfile.id, { last_seen: new Date().toISOString() }).catch(()=>{});
@@ -1081,16 +1082,24 @@ async function afterOnboarding(){
 }
 
 async function loadHomeData(){
+  // Nur das Minimum für die initiale Home-Anzeige (Konstellations-View braucht techProfiles)
   setLoadingLabel('Techniker-Profile werden geladen', '');
   STATE.techProfiles = await atRead('TechnikerProfile');
-  setLoadingLabel('Wissensbasis wird geladen', '');
-  await loadWissen();
-  setLoadingLabel('Chats werden geladen', '');
-  const allChats = await atRead('Chats');
-  STATE.chats = allChats.filter(c => {
-    const ps = parseList(c.fields.participants);
-    return ps.includes(APP_KEYS.user.api_key);
-  }).sort((a,b)=>(b.fields.last_msg_at||'').localeCompare(a.fields.last_msg_at||''));
+  // Rest läuft im Hintergrund nach showView('home') — Home ist sofort interaktiv
+}
+
+async function loadHomeDataDeferred(){
+  try {
+    const allChats = await atRead('Chats');
+    STATE.chats = allChats.filter(c => {
+      const ps = parseList(c.fields.participants);
+      return ps.includes(APP_KEYS.user.api_key);
+    }).sort((a,b)=>(b.fields.last_msg_at||'').localeCompare(a.fields.last_msg_at||''));
+    if(STATE.activeTab === 'chats') renderChatsList();
+  } catch(e){}
+  try {
+    await loadWissen();
+  } catch(e){}
 }
 
 // ============================================================
@@ -1943,11 +1952,12 @@ async function uploadVoiceMessage(file, transcript){
       created,
       lang: myLang(),
     });
+    const cleanType = (file.type || 'audio/webm').split(';')[0]; // codecs-Suffix raus
     const upRes = await fetch(
       'https://content.airtable.com/v0/' + APP_CONFIG.APP_BASE_ID + '/' + rec.id + '/attachments/uploadAttachment',
       { method:'POST',
         headers:{'Authorization':'Bearer '+APP_KEYS.airtableWriteKey,'Content-Type':'application/json'},
-        body: JSON.stringify({ contentType: file.type || 'audio/webm', file: base64, filename: file.name }) }
+        body: JSON.stringify({ contentType: cleanType, file: base64, filename: file.name }) }
     );
     if(!upRes.ok){
       const errTxt = await upRes.text();
@@ -2055,11 +2065,12 @@ async function handleChatAttachment(input){
       created,
       lang: myLang(),
     });
+    const cleanType = (file.type || 'application/octet-stream').split(';')[0];
     const upRes = await fetch(
       'https://content.airtable.com/v0/' + APP_CONFIG.APP_BASE_ID + '/' + rec.id + '/attachments/uploadAttachment',
       { method:'POST',
         headers:{'Authorization':'Bearer '+APP_KEYS.airtableWriteKey,'Content-Type':'application/json'},
-        body: JSON.stringify({ contentType: file.type || 'application/octet-stream', file: base64, filename: file.name }) }
+        body: JSON.stringify({ contentType: cleanType, file: base64, filename: file.name }) }
     );
     if(!upRes.ok){
       const errTxt = await upRes.text();
