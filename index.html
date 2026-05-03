@@ -829,7 +829,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.9.2';
+const APP_VERSION = 'v2.9.3';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -2223,8 +2223,8 @@ function renderFilterStrip(){
   let html = '<button class="chip '+(filterCount?'with-count':'')+'" onclick="openFilterModal()">⚙ '+t('filter')+(filterCount?' · '+filterCount:'')+'</button>';
   html += '<button class="chip '+(STATE.filterModal.online?'active':'')+'" onclick="quickFilter(\'online\',\'\')">'+t('filter_online')+'</button>';
   // Quick-Chips dynamisch: erst Modelle mit Wissen, dann Steuerungen mit Wissen (max 6 chips total für Übersicht)
-  const quickModels = itemsWithKnowledge(MODELS, 'model').slice(0, 4);
-  const quickControls = itemsWithKnowledge(CONTROLS, 'control').slice(0, 2);
+  const quickModels = relevantItems(MODELS, 'model').slice(0, 4);
+  const quickControls = relevantItems(CONTROLS, 'control').slice(0, 2);
   quickModels.forEach(it => {
     const active = STATE.filterModal.models.has(it.name);
     html += '<button class="chip '+(active?'active':'')+'" onclick="quickFilter(\'model\',\''+esc(it.name)+'\')">'+esc(it.name)+'</button>';
@@ -2268,9 +2268,23 @@ function itemHasKnowledge(category, name){
     w.fields.summary
   );
 }
-// Filtert eine Item-Liste auf nur die mit vorhandener Wissensbasis.
-function itemsWithKnowledge(items, category){
-  return items.filter(i => itemHasKnowledge(category, i.name));
+// Hat ein Katalog-Item mindestens einen aktiven, onboardeten Techniker (mensch) der es in seinem Profil führt?
+function itemHasActiveUser(category, name){
+  const fieldMap = { model:'models', control:'controls', frequenzumrichter:'frequenzumrichter' };
+  const field = fieldMap[category];
+  if(!field) return false;
+  return (STATE.techProfiles || []).some(p =>
+    STATE.activeKeys.has(p.fields.api_key) &&
+    p.fields.onboarding_done === true &&
+    parseList(p.fields[field]).includes(name)
+  );
+}
+// Item ist relevant für Filter/Pre-Chat: entweder AI-Specialist (Wissen vorhanden) ODER mindestens ein echter User.
+function itemIsRelevant(category, name){
+  return itemHasKnowledge(category, name) || itemHasActiveUser(category, name);
+}
+function relevantItems(items, category){
+  return items.filter(i => itemIsRelevant(category, i.name));
 }
 
 // Generiert dynamisch AI-Specialists aus Katalog + Wissensbasis.
@@ -2683,9 +2697,9 @@ function renderFilterModalBody(){
   const body = document.getElementById('filterModalBody');
   let html = '';
   // Filter zeigt nur Items zu denen es Wissensbasis gibt — sonst hat ein Filter-Tap keinen Effekt (kein Specialist).
-  html += renderFilterGroup(t('filter_models'), itemsWithKnowledge(MODELS, 'model'), STATE.filterModal.models, 'models');
-  html += renderFilterGroup(t('filter_controls'), itemsWithKnowledge(CONTROLS, 'control'), STATE.filterModal.controls, 'controls');
-  html += renderFilterGroup(t('filter_fu'), itemsWithKnowledge(FREQUENZUMRICHTER, 'frequenzumrichter'), STATE.filterModal.frequenzumrichter, 'frequenzumrichter');
+  html += renderFilterGroup(t('filter_models'), relevantItems(MODELS, 'model'), STATE.filterModal.models, 'models');
+  html += renderFilterGroup(t('filter_controls'), relevantItems(CONTROLS, 'control'), STATE.filterModal.controls, 'controls');
+  html += renderFilterGroup(t('filter_fu'), relevantItems(FREQUENZUMRICHTER, 'frequenzumrichter'), STATE.filterModal.frequenzumrichter, 'frequenzumrichter');
   // Medaillen-Filter
   html += '<div class="filter-group"><div class="filter-group-title">'+t('filter_medal')+(STATE.filterModal.medals.size?' <span class="count">'+STATE.filterModal.medals.size+'</span>':'')+'</div><div class="chip-set">';
   MEDALS.forEach(m => {
@@ -2840,7 +2854,7 @@ function renderPreChat(){
   let html = '<div style="font-size:13px;color:var(--text-dim);margin-bottom:14px;line-height:1.4">'+t('prechat_hint')+'</div>';
   CATEGORIES.forEach(cat => {
     // Nur Items mit Wissensbasis — Tags ohne Wissen wären für die KI ohnehin wirkungslos
-    const items = itemsWithKnowledge(cat.getList(), cat.key);
+    const items = relevantItems(cat.getList(), cat.key);
     if(!items.length) return;
     html += '<div class="filter-group"><div class="filter-group-title">'+cat.plural+'</div><div class="chip-set">';
     items.forEach(i => {
