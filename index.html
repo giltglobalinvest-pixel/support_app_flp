@@ -414,6 +414,15 @@ button{cursor:pointer;border:none;background:none}
 
 .version-tag{display:none}
 
+.debug-panel{position:fixed;top:env(safe-area-inset-top,0);right:2px;width:210px;max-height:60vh;background:rgba(0,0,0,.88);color:#7fff7f;font-family:'JetBrains Mono',monospace;font-size:9px;line-height:1.35;padding:5px 7px;border-radius:5px;z-index:9999;overflow-y:auto;pointer-events:auto;box-shadow:0 4px 12px rgba(0,0,0,.4)}
+.debug-panel .row{white-space:pre-wrap;word-break:break-all}
+.debug-panel .ok{color:#7fff7f}
+.debug-panel .warn{color:#ffd454}
+.debug-panel .err{color:#ff7878}
+.debug-panel .tap{color:#7ddcff}
+.debug-panel .header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #444;padding-bottom:3px;margin-bottom:4px;font-weight:700}
+.debug-panel .header button{background:transparent;border:none;color:#fff;font-size:11px;padding:0 4px;cursor:pointer}
+
 @media(min-width:768px){
   .app{max-width:440px;margin:0 auto;border-left:1px solid var(--rule);border-right:1px solid var(--rule)}
 }
@@ -615,11 +624,58 @@ button{cursor:pointer;border:none;background:none}
 
 <div class="version-tag" id="versionTag"></div>
 
+<div class="debug-panel" id="debugPanel" style="display:none">
+  <div class="header"><span>DEBUG</span><button onclick="toggleDebug()">×</button></div>
+  <div id="debugLogList"></div>
+</div>
+
 <script>
+// ============================================================
+// DEBUG-OVERLAY
+// ============================================================
+const DEBUG_START = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+const DEBUG_LOG = [];
+let DEBUG_LAST = DEBUG_START;
+function debugLog(msg, type){
+  const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+  const total = Math.round(now - DEBUG_START);
+  const delta = Math.round(now - DEBUG_LAST);
+  DEBUG_LAST = now;
+  const cls = type || 'ok';
+  DEBUG_LOG.push({ t: total, d: delta, msg, cls });
+  if(DEBUG_LOG.length > 60) DEBUG_LOG.shift();
+  renderDebug();
+}
+function renderDebug(){
+  const list = document.getElementById('debugLogList');
+  if(!list) return;
+  list.innerHTML = DEBUG_LOG.slice(-30).map(e =>
+    '<div class="row '+e.cls+'">'+String(e.t).padStart(5)+'ms +'+String(e.d).padStart(4)+' '+e.msg+'</div>'
+  ).join('');
+  const panel = document.getElementById('debugPanel');
+  if(panel) panel.scrollTop = panel.scrollHeight;
+}
+function toggleDebug(){
+  const panel = document.getElementById('debugPanel');
+  if(!panel) return;
+  const v = (panel.style.display !== 'none');
+  panel.style.display = v ? 'none' : 'block';
+  localStorage.setItem('debug_on', v ? '0' : '1');
+}
+// Touch-Tracking — sehen ob Taps überhaupt ankommen
+['pointerdown','click'].forEach(ev => {
+  document.addEventListener(ev, e => {
+    const tag = (e.target.tagName || '').toLowerCase();
+    const id = e.target.id ? '#'+e.target.id : '';
+    const cls = e.target.className ? '.'+String(e.target.className).split(' ')[0] : '';
+    debugLog(ev+' '+tag+id+cls, 'tap');
+  }, { capture: true, passive: true });
+});
+
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v1.6.4';
+const APP_VERSION = 'v1.6.5';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -850,18 +906,28 @@ async function afterLogin(){
   showView('loading');
   setLoadingLabel('Login erfolgreich', 'Tabellen werden vorbereitet...');
   try {
+    debugLog('ensureAllTables start');
     await ensureAllTables();
+    debugLog('ensureAllTables done');
     setLoadingLabel('Katalog wird geladen', 'Modelle, Steuerungen, FU, Komponenten');
+    debugLog('loadKatalog start');
     await loadKatalog();
+    debugLog('loadKatalog done ('+KATALOG_RECORDS.length+' items)');
     setLoadingLabel('Profil wird synchronisiert', APP_KEYS.user.name || APP_KEYS.user.api_key);
+    debugLog('loadProfile start');
     await loadOrCreateMyProfile();
+    debugLog('loadProfile done');
     if(!STATE.myProfile.fields.onboarding_done){
       showView('onboard');
       onboardInit();
+      debugLog('onboard view shown');
       return;
     }
+    debugLog('afterOnboarding start');
     await afterOnboarding();
+    debugLog('afterOnboarding done — HOME ready');
   } catch(e){
+    debugLog('afterLogin ERR: '+e.message, 'err');
     toast(e.message || 'Setup fehlgeschlagen', 'error');
     setTimeout(()=>showView('login'), 1500);
   }
@@ -1073,12 +1139,16 @@ async function loadOrCreateMyProfile(){
 
 async function afterOnboarding(){
   setLoadingLabel('Profile werden geladen', '');
+  debugLog('loadHomeData start');
   await loadHomeData();
+  debugLog('loadHomeData done ('+STATE.techProfiles.length+' profiles)');
   setLoadingLabel('Fertig', '');
+  debugLog('showView(home) start');
   showView('home');
+  debugLog('renderHome start');
   renderHome();
-  // Wissen + Chats im Hintergrund nachladen (UI bleibt sofort interaktiv)
-  setTimeout(loadHomeDataDeferred, 50);
+  debugLog('renderHome done — INTERAKTIV');
+  setTimeout(()=>{ debugLog('loadHomeDataDeferred start'); loadHomeDataDeferred(); }, 50);
   if(window._hbInterval) clearInterval(window._hbInterval);
   window._hbInterval = setInterval(()=>{
     if(STATE.myProfile) atUpdate('TechnikerProfile', STATE.myProfile.id, { last_seen: new Date().toISOString() }).catch(()=>{});
@@ -1086,24 +1156,26 @@ async function afterOnboarding(){
 }
 
 async function loadHomeData(){
-  // Nur das Minimum für die initiale Home-Anzeige (Konstellations-View braucht techProfiles)
   setLoadingLabel('Techniker-Profile werden geladen', '');
   STATE.techProfiles = await atRead('TechnikerProfile');
-  // Rest läuft im Hintergrund nach showView('home') — Home ist sofort interaktiv
 }
 
 async function loadHomeDataDeferred(){
   try {
+    debugLog('loadChats start');
     const allChats = await atRead('Chats');
+    debugLog('loadChats done ('+allChats.length+' total)');
     STATE.chats = allChats.filter(c => {
       const ps = parseList(c.fields.participants);
       return ps.includes(APP_KEYS.user.api_key);
     }).sort((a,b)=>(b.fields.last_msg_at||'').localeCompare(a.fields.last_msg_at||''));
     if(STATE.activeTab === 'chats') renderChatsList();
-  } catch(e){}
+  } catch(e){ debugLog('loadChats ERR: '+e.message, 'err'); }
   try {
+    debugLog('loadWissen start');
     await loadWissen();
-  } catch(e){}
+    debugLog('loadWissen done ('+STATE.wissen.length+' docs)');
+  } catch(e){ debugLog('loadWissen ERR: '+e.message, 'err'); }
 }
 
 // ============================================================
@@ -2694,14 +2766,30 @@ async function checkForLatestVersion(){
 // INIT
 // ============================================================
 document.getElementById('versionTag').textContent = APP_VERSION;
+
+// Debug-Panel automatisch zeigen wenn Flag gesetzt ODER beim ersten Start (zur Diagnose)
+if(localStorage.getItem('debug_on') !== '0'){
+  const dp = document.getElementById('debugPanel');
+  if(dp) dp.style.display = 'block';
+}
+debugLog('script geladen', 'ok');
+
 (async function init(){
+  debugLog('init() start', 'ok');
   setLoadingLabel('App startet', APP_VERSION);
   setLoadingLabel('Login wird geprüft', '');
-  const ok = await tryAutoLogin();
-  if(ok){ await afterLogin(); }
-  else { showView('login'); }
-  // Version-Check erst NACHDEM App vollständig interaktiv ist (verhindert iOS-Touch-Hänger)
-  setTimeout(checkForLatestVersion, 3000);
+  let ok = false;
+  try { ok = await tryAutoLogin(); debugLog('tryAutoLogin → '+ok, 'ok'); }
+  catch(e){ debugLog('tryAutoLogin ERR: '+e.message, 'err'); }
+  if(ok){
+    try { await afterLogin(); debugLog('afterLogin done', 'ok'); }
+    catch(e){ debugLog('afterLogin ERR: '+e.message, 'err'); }
+  } else {
+    showView('login');
+    debugLog('login-screen shown', 'ok');
+  }
+  setTimeout(()=>{ debugLog('checkForLatestVersion start', 'ok'); checkForLatestVersion(); }, 3000);
+  debugLog('init() done', 'ok');
 })();
 </script>
 </body>
