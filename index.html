@@ -679,7 +679,7 @@ function toggleDebug(){
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v1.7.2';
+const APP_VERSION = 'v1.8';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -847,17 +847,19 @@ async function loginWithUserKey(userKey){
   (projectKeysData.records || []).forEach(rec => {
     if(rec.fields.key_name === 'anthropicKey') APP_KEYS.anthropicKey = rec.fields.key_value;
     if(rec.fields.key_name === 'airtableWriteKey') APP_KEYS.airtableWriteKey = rec.fields.key_value;
+    if(rec.fields.key_name === 'openaiKey') APP_KEYS.openaiKey = rec.fields.key_value;
   });
 
   // Globale Keys (Fallback)
-  if(!APP_KEYS.anthropicKey){
+  if(!APP_KEYS.anthropicKey || !APP_KEYS.openaiKey){
     const gRes = await fetch(
       'https://api.airtable.com/v0/' + APP_CONFIG.MASTER_BASE_ID + "/Keys?filterByFormula=" + encodeURIComponent("{project_id}='GLOBAL'"),
       { headers }
     );
     const gData = await gRes.json();
     (gData.records || []).forEach(rec => {
-      if(rec.fields.key_name === 'anthropicKey') APP_KEYS.anthropicKey = rec.fields.key_value;
+      if(rec.fields.key_name === 'anthropicKey' && !APP_KEYS.anthropicKey) APP_KEYS.anthropicKey = rec.fields.key_value;
+      if(rec.fields.key_name === 'openaiKey' && !APP_KEYS.openaiKey) APP_KEYS.openaiKey = rec.fields.key_value;
     });
   }
 
@@ -2027,11 +2029,36 @@ function stopVoiceRecording(send){
   mr.stop();
 }
 
+// OpenAI Whisper — Server-Side-Transkription für Audio-Dateien
+async function whisperTranscribe(file, lang){
+  if(!APP_KEYS.openaiKey) return '';
+  try {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    form.append('model', 'whisper-1');
+    if(lang) form.append('language', lang);
+    const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method:'POST',
+      headers:{ 'Authorization':'Bearer '+APP_KEYS.openaiKey },
+      body: form
+    });
+    if(!res.ok){ const e = await res.text(); console.warn('Whisper:', e); return ''; }
+    const data = await res.json();
+    return (data.text || '').trim();
+  } catch(e){ console.warn('Whisper err:', e); return ''; }
+}
+
 async function uploadVoiceMessage(file, transcript){
   if(!STATE.currentChat) return;
   if(file.size > 5 * 1024 * 1024){ toast('Sprachnachricht zu groß ('+fmtBytes(file.size)+')', 'error'); return; }
   const sendBtn = document.getElementById('chatSendBtn');
   sendBtn.disabled = true;
+  // Wenn Web-Speech leer war UND Whisper-Key da → via Whisper transkribieren
+  if((!transcript || transcript.length < 2) && APP_KEYS.openaiKey){
+    toast('Transkribiere via Whisper...');
+    const whisperText = await whisperTranscribe(file, myLang());
+    if(whisperText) transcript = whisperText;
+  }
   toast('Sprachnachricht wird gesendet...');
   try {
     const fieldOk = await ensureField('Messages', 'attachments', 'multipleAttachments');
