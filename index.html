@@ -86,11 +86,16 @@ button{cursor:pointer;border:none;background:none}
 .medal-tile .desc{font-size:10.5px;color:var(--text-dim);margin-top:3px;line-height:1.3}
 .app-logo{font-family:'Archivo',sans-serif;font-weight:900;font-stretch:75%;font-size:16px;letter-spacing:.02em;display:flex;align-items:center;gap:8px}
 .app-logo .dot{width:7px;height:7px;background:var(--accent);border-radius:50%;box-shadow:0 0 10px var(--accent)}
+.profile-mini-wrap{position:relative;flex-shrink:0}
 .profile-mini{
   width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;
   font-size:12px;font-weight:800;font-family:'Archivo',sans-serif;color:#fff;
   background:linear-gradient(135deg,#a5b4fc,#6366f1);cursor:pointer;flex-shrink:0;
 }
+.medal-badge{position:absolute;bottom:-2px;right:-4px;width:20px;height:20px;border-radius:50%;background:var(--phone-screen);border:2px solid var(--phone-screen);display:flex;align-items:center;justify-content:center;font-size:13px;line-height:1;box-shadow:0 2px 6px rgba(0,0,0,.4);pointer-events:none}
+.tech .medal-badge{bottom:-2px;right:-2px;width:18px;height:18px;font-size:11px}
+.lead-row .medal-badge{position:absolute;bottom:-3px;right:-3px;width:16px;height:16px;font-size:10px}
+.lead-row .avatar-wrap{position:relative}
 .icon-btn{width:34px;height:34px;display:flex;align-items:center;justify-content:center;color:var(--text);font-size:18px;border-radius:50%}
 .icon-btn:active{background:var(--surface)}
 
@@ -559,7 +564,7 @@ button{cursor:pointer;border:none;background:none}
     <div class="user-bar" id="userBarHome"></div>
     <div class="app-header">
       <div class="app-logo"><span class="dot"></span>FLP SUPPORTER</div>
-      <div class="profile-mini" id="profileBtn" onclick="openSettings()"></div>
+      <div class="profile-mini-wrap"><div class="profile-mini" id="profileBtn" onclick="openSettings()"></div><div class="medal-badge" id="profileMedalBadge" style="display:none"></div></div>
     </div>
     <div class="tabs">
       <button class="tab active" id="tab-konstellation" onclick="switchTab('konstellation')">Konstellation</button>
@@ -775,7 +780,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.4.3';
+const APP_VERSION = 'v2.4.4';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -924,11 +929,14 @@ async function ensureField(tableName, fieldName, type){
     const table = (meta.tables || []).find(t => t.name === tableName);
     if(!table) return false;
     if((table.fields || []).find(f => f.name === fieldName)) return true;
+    // Number-Felder brauchen options.precision
+    const fieldDef = { name: fieldName, type };
+    if(type === 'number') fieldDef.options = { precision: 0 };
     const createRes = await fetch(
       'https://api.airtable.com/v0/meta/bases/' + APP_CONFIG.APP_BASE_ID + '/tables/' + table.id + '/fields',
       { method:'POST',
         headers:{'Authorization':'Bearer '+APP_KEYS.airtableWriteKey,'Content-Type':'application/json'},
-        body: JSON.stringify({ name: fieldName, type }) }
+        body: JSON.stringify(fieldDef) }
     );
     if(createRes.ok){
       // Cache aktualisieren: neues Feld hinzufügen
@@ -1700,6 +1708,18 @@ function renderHome(){
       btn.style.backgroundImage = '';
     }
   }
+  // Medal-Badge am Profile-Avatar
+  const badge = document.getElementById('profileMedalBadge');
+  if(badge){
+    const tier = tierFor(myPoints());
+    if(tier){
+      badge.textContent = tier.icon;
+      badge.style.display = 'flex';
+      badge.title = tier.label + ' (' + myPoints() + ' Pkt)';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
   renderUserBar();
   renderFilterStrip();
   renderConstellation();
@@ -1884,11 +1904,14 @@ function renderConstellation(){
     const innerAvatar = photo
       ? `<div class="tech-avatar" style="width:${size}px;height:${size}px;background-image:url(${esc(photo)});background-size:cover;background-position:center"></div>`
       : `<div class="tech-avatar ${avClass}" style="width:${size}px;height:${size}px;font-size:${Math.round(size*0.35)}px">${esc(initials)}</div>`;
+    const techTier = tierFor(p.fields.points || 0);
+    const techMedal = techTier ? '<div class="medal-badge">'+techTier.icon+'</div>' : '';
     el.innerHTML = `
       <div style="position:relative">
         ${innerAvatar}
         ${online?'<div class="tech-online-dot"></div>':''}
         ${STATE.selected.has(p.id)?'<div class="tech-check">✓</div>':''}
+        ${techMedal}
       </div>
       <div class="tech-name">${esc(p.fields.name || p.fields.api_key)}</div>
       ${tag?'<div class="tech-tag">'+esc(tag)+'</div>':''}
@@ -3320,11 +3343,14 @@ function renderLeaderboard(){
       const avPreset = avatarPresetClass(p, i);
       html += '<div class="lead-row '+(isMe?'me':'')+'">';
       html += '<div class="rank '+rankCls+'">#'+rank+'</div>';
+      const medalHtml = tier ? '<div class="medal-badge">'+tier.icon+'</div>' : '';
+      html += '<div class="avatar-wrap">';
       if(photo){
         html += '<div style="width:34px;height:34px;border-radius:50%;background-image:url('+esc(photo)+');background-size:cover;background-position:center;flex-shrink:0"></div>';
       } else {
         html += '<div class="'+avPreset+'" style="width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:Archivo,sans-serif;font-weight:800;font-stretch:75%;font-size:13px;color:#fff;flex-shrink:0">'+esc(makeInitials(p.fields.name||p.fields.api_key))+'</div>';
       }
+      html += medalHtml + '</div>';
       html += '<div class="body"><div class="name">'+esc(p.fields.name || p.fields.api_key)+(tier?' '+tier.icon:'')+'</div><div class="meta">🪙 '+(p.fields.tokens||0)+' Tokens · '+(tier?tier.label:'kein Tier')+'</div></div>';
       html += '<div class="pts">'+(p.fields.points||0)+'</div>';
       html += '</div>';
