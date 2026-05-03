@@ -743,7 +743,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.2';
+const APP_VERSION = 'v2.3';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -1087,6 +1087,15 @@ async function ensureAllTables(){
     { name:'uploaded_at', type:'singleLineText' },
     { name:'status', type:'singleLineText' },
   ]);
+  await ensureTable('Usage', [
+    { name:'timestamp', type:'singleLineText' },
+    { name:'model', type:'singleLineText' },
+    { name:'purpose', type:'singleLineText' },
+    { name:'input_tokens', type:'number', options:{ precision:0 } },
+    { name:'output_tokens', type:'number', options:{ precision:0 } },
+    { name:'cost_eur', type:'number', options:{ precision:4 } },
+    { name:'user_key', type:'singleLineText' },
+  ]);
   invalidateMetaCache();
   localStorage.setItem(migKey, '1');
 }
@@ -1143,6 +1152,41 @@ function applyKatalog(){
 function isAdmin(){
   const r = ((APP_KEYS.user?.role || '') + '').trim().toLowerCase();
   return r === 'admin' || r.includes('admin');
+}
+
+// ============================================================
+// AI-NUTZUNGS-LOGGING (Token + Kosten)
+// ============================================================
+const AI_PRICING_USD_PER_MTOK = {
+  'claude-sonnet-4-5-20250929': { in: 3.00, out: 15.00 },
+  'claude-sonnet-4-5':           { in: 3.00, out: 15.00 },
+  'claude-haiku-4-5-20251001':   { in: 0.80, out: 4.00 },
+  'claude-haiku-4-5':            { in: 0.80, out: 4.00 },
+};
+const USD_TO_EUR = 0.92;
+
+function calcCostEur(model, inputTokens, outputTokens){
+  const p = AI_PRICING_USD_PER_MTOK[model];
+  if(!p) return 0;
+  const usd = (inputTokens / 1e6) * p.in + (outputTokens / 1e6) * p.out;
+  return Number((usd * USD_TO_EUR).toFixed(6));
+}
+
+async function logAiUsage(model, usage, purpose){
+  if(!APP_KEYS.airtableWriteKey || !usage) return;
+  const inputTok = usage.input_tokens || 0;
+  const outputTok = usage.output_tokens || 0;
+  const costEur = calcCostEur(model, inputTok, outputTok);
+  try {
+    await atWrite('Usage', {
+      timestamp: new Date().toISOString(),
+      model, purpose: purpose || '',
+      input_tokens: inputTok,
+      output_tokens: outputTok,
+      cost_eur: costEur,
+      user_key: APP_KEYS.user?.api_key || '',
+    });
+  } catch(e){ /* best effort, nicht App blockieren */ }
 }
 
 // ============================================================
@@ -1214,6 +1258,7 @@ async function translateText(text, fromLang, toLang){
   });
   if(!res.ok){ const e = await res.json().catch(()=>({})); throw new Error(e.error?.message || 'Übersetzung fehlgeschlagen'); }
   const data = await res.json();
+  logAiUsage('claude-haiku-4-5-20251001', data.usage, 'translate '+fromLang+'→'+toLang);
   return data.content?.[0]?.text?.trim() || text;
 }
 
@@ -2718,6 +2763,7 @@ Teilnehmer-Profile (Modelle/Steuerungen): siehe Chat-Verlauf.${knowledgeBlock ||
     });
     const data = await res.json();
     if(!res.ok) throw new Error(data.error?.message || 'AI-Fehler '+res.status);
+    logAiUsage('claude-sonnet-4-5-20250929', data.usage, 'chat-ai');
     const aiText = data.content && data.content[0] ? data.content[0].text : '(keine Antwort)';
 
     const created = new Date().toISOString();
@@ -2797,6 +2843,7 @@ Wenn ein Punkt nicht aus dem Chat hervorgeht, schreibe "—". Maximal 400 Wörte
     });
     if(!res.ok) throw new Error('AI '+res.status);
     const data = await res.json();
+    logAiUsage('claude-sonnet-4-5-20250929', data.usage, 'chat-extract');
     const summary = data.content?.[0]?.text || '';
     if(!summary) return;
     let category = 'component', itemName = chat.fields.title || 'Gelöster Fall';
@@ -3157,19 +3204,21 @@ async function openDashboard(){
   document.getElementById('dashboardBody').innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-dim)"><span class="loader"></span> Lade Statistiken...</div>';
   try {
     // Daten laden parallel
-    const [users, allChats, allMessages, allWissen] = await Promise.all([
+    const [users, allChats, allMessages, allWissen, allUsage] = await Promise.all([
       atRead('User'),
       atRead('Chats'),
       atRead('Messages').catch(()=>[]),
       atRead('Wissen').catch(()=>[]),
+      atRead('Usage').catch(()=>[]),
     ]);
-    renderDashboard(users, allChats, allMessages, allWissen);
+    renderDashboard(users, allChats, allMessages, allWissen, allUsage);
   } catch(e){
     document.getElementById('dashboardBody').innerHTML = '<div style="color:var(--danger);padding:20px;text-align:center">'+esc(e.message)+'</div>';
   }
 }
 
-function renderDashboard(users, allChats, allMessages, allWissen){
+function renderDashboard(users, allChats, allMessages, allWissen, allUsage){
+  allUsage = allUsage || [];
   const body = document.getElementById('dashboardBody');
   const now = Date.now();
   // User-Stats
@@ -3244,6 +3293,47 @@ function renderDashboard(users, allChats, allMessages, allWissen){
       html += '<div class="dash-bar-row"><div class="lbl">'+esc(u.name)+'</div><div class="bar"><div class="fill" style="width:'+pct+'%"></div></div><div class="num">'+u.count+'</div></div>';
     });
   } else { html += '<div style="color:var(--text-very-dim);font-style:italic;font-size:12px">Noch keine Aktivität</div>'; }
+
+  // KI-KOSTEN
+  const today0 = new Date(); today0.setHours(0,0,0,0);
+  const month0 = new Date(today0.getFullYear(), today0.getMonth(), 1);
+  let totalEur = 0, todayEur = 0, monthEur = 0;
+  let totalIn = 0, totalOut = 0, callCount = 0;
+  const byPurpose = {}; // purpose → { eur, count }
+  allUsage.forEach(u => {
+    const cost = u.fields.cost_eur || 0;
+    const ts = u.fields.timestamp ? new Date(u.fields.timestamp) : null;
+    totalEur += cost;
+    totalIn += u.fields.input_tokens || 0;
+    totalOut += u.fields.output_tokens || 0;
+    callCount++;
+    if(ts && ts >= today0) todayEur += cost;
+    if(ts && ts >= month0) monthEur += cost;
+    const purp = u.fields.purpose || 'other';
+    if(!byPurpose[purp]) byPurpose[purp] = { eur: 0, count: 0 };
+    byPurpose[purp].eur += cost;
+    byPurpose[purp].count++;
+  });
+  const fmtEur = v => v < 0.01 ? '< 0.01 €' : v.toFixed(2) + ' €';
+  html += '<div class="dash-section-title">KI-Kosten (Anthropic API)</div>';
+  html += '<div class="dash-grid">';
+  html += '<div class="dash-tile accent"><div class="label">Heute</div><div class="value">'+fmtEur(todayEur)+'</div><div class="sub">seit 00:00</div></div>';
+  html += '<div class="dash-tile ai"><div class="label">Diesen Monat</div><div class="value">'+fmtEur(monthEur)+'</div><div class="sub">seit Monatsanfang</div></div>';
+  html += '<div class="dash-tile"><div class="label">Total</div><div class="value">'+fmtEur(totalEur)+'</div><div class="sub">'+callCount+' Calls</div></div>';
+  html += '<div class="dash-tile"><div class="label">Tokens</div><div class="value" style="font-size:18px;line-height:1.2">'+(totalIn/1000).toFixed(1)+'K<br>+ '+(totalOut/1000).toFixed(1)+'K</div><div class="sub">in / out</div></div>';
+  html += '</div>';
+  // Breakdown nach Zweck
+  const purposes = Object.entries(byPurpose).sort((a,b)=>b[1].eur - a[1].eur);
+  if(purposes.length){
+    html += '<div class="dash-section-title">Kosten nach Zweck</div>';
+    const maxEur = purposes[0][1].eur || 1;
+    purposes.forEach(([name, data]) => {
+      const pct = Math.round(data.eur / maxEur * 100);
+      const label = name + ' ('+data.count+' Calls)';
+      html += '<div class="dash-bar-row"><div class="lbl">'+esc(label)+'</div><div class="bar"><div class="fill" style="width:'+pct+'%"></div></div><div class="num">'+fmtEur(data.eur)+'</div></div>';
+    });
+  }
+  html += '<div style="margin-top:14px;padding:10px 12px;background:rgba(56,189,248,.05);border:1px solid rgba(56,189,248,.20);border-radius:6px;font-size:11px;color:var(--text-dim);line-height:1.5">💡 Berechnet aus Token-Usage: Sonnet 4.5 $3/$15, Haiku 4.5 $0.80/$4 pro 1M Tokens. USD→EUR ~'+USD_TO_EUR+'. Whisper-Audio-Kosten (~0.6¢/Min) werden nicht erfasst.</div>';
   body.innerHTML = html;
 }
 
@@ -3490,6 +3580,7 @@ async function analyzeWissenPdf(recordId, base64){
   });
   if(!res.ok){ const e = await res.json().catch(()=>({})); throw new Error(e.error?.message || 'Analyse '+res.status); }
   const data = await res.json();
+  logAiUsage('claude-sonnet-4-5-20250929', data.usage, 'pdf-analyse');
   const summary = data.content?.[0]?.text || '';
   await atUpdate('Wissen', recordId, { status: 'ready', summary });
 }
