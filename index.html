@@ -1,0 +1,1424 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a1428">
+<title>Liftaro Peer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&family=Manrope:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a1428;--surface:rgba(255,255,255,.05);--surface-strong:rgba(255,255,255,.10);
+  --phone-screen:#0e1a30;--text:#f1f5f9;--text-dim:#94a3b8;--text-very-dim:#475569;
+  --accent:#38bdf8;--accent-glow:rgba(56,189,248,.18);--on-accent:#0a1428;
+  --ai:#c084fc;--ai-glow:rgba(192,132,252,.10);--online:#34d399;--danger:#f87171;
+  --rule:rgba(255,255,255,.06);--rule-strong:rgba(255,255,255,.12);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--bg);color:var(--text);font-family:'Manrope',sans-serif;-webkit-font-smoothing:antialiased;height:100%;overflow:hidden;overscroll-behavior:none}
+button,input,textarea{font-family:inherit;color:inherit}
+button{cursor:pointer;border:none;background:none}
+
+.app{
+  height:100vh;height:100dvh;background:
+    radial-gradient(ellipse 80% 50% at 20% 0%, #14233f, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 90% 100%, var(--accent-glow), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 10% 100%, rgba(192,132,252,.10), transparent 50%),
+    var(--bg);
+  display:flex;flex-direction:column;position:relative;overflow:hidden;
+}
+
+.view{display:none;flex-direction:column;flex:1;min-height:0;position:relative;animation:fadeIn .25s}
+.view.active{display:flex}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+/* ===== HEADER ===== */
+.app-header{
+  padding:max(14px,env(safe-area-inset-top)) 22px 14px;display:flex;justify-content:space-between;
+  align-items:center;border-bottom:1px solid var(--rule);flex-shrink:0;gap:12px;
+}
+.app-logo{font-family:'Archivo',sans-serif;font-weight:900;font-stretch:75%;font-size:16px;letter-spacing:.02em;display:flex;align-items:center;gap:8px}
+.app-logo .dot{width:7px;height:7px;background:var(--accent);border-radius:50%;box-shadow:0 0 10px var(--accent)}
+.profile-mini{
+  width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:800;font-family:'Archivo',sans-serif;color:#fff;
+  background:linear-gradient(135deg,#a5b4fc,#6366f1);cursor:pointer;
+}
+.icon-btn{width:34px;height:34px;display:flex;align-items:center;justify-content:center;color:var(--text);font-size:18px;border-radius:50%}
+.icon-btn:active{background:var(--surface)}
+
+/* ===== LOGIN ===== */
+.login-content{flex:1;padding:40px 28px 28px;display:flex;flex-direction:column;justify-content:center;padding-top:max(40px,env(safe-area-inset-top))}
+.welcome-eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.16em;color:var(--accent);font-weight:700;margin-bottom:18px}
+.welcome-title{font-family:'Archivo',sans-serif;font-weight:900;font-stretch:75%;font-size:48px;line-height:.9;letter-spacing:-.04em;margin-bottom:22px}
+.welcome-title .accent{color:var(--accent)}
+.welcome-text{font-size:15px;color:var(--text-dim);line-height:1.5;margin-bottom:36px}
+.welcome-text strong{color:var(--text);font-weight:600}
+
+.input-block{margin-bottom:14px}
+.input-label{font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--text-dim);margin-bottom:8px;display:block}
+.text-input{
+  width:100%;padding:14px 16px;background:var(--surface);border:1px solid var(--rule-strong);
+  border-radius:10px;font-size:14px;color:var(--text);outline:none;font-family:'JetBrains Mono',monospace;
+}
+.text-input:focus{border-color:var(--accent)}
+.text-input::placeholder{color:var(--text-very-dim)}
+
+.error-msg{color:var(--danger);font-size:12.5px;margin-top:8px;font-family:'JetBrains Mono',monospace}
+
+/* ===== ONBOARDING ===== */
+.onboard-progress{display:flex;gap:5px;padding:max(16px,env(safe-area-inset-top)) 22px 0}
+.progress-dot{flex:1;height:3px;background:var(--rule-strong);border-radius:2px;transition:background .3s}
+.progress-dot.done{background:var(--accent)}
+.progress-dot.active{background:var(--accent);opacity:.5}
+
+.onboard-content{flex:1;padding:28px 24px 16px;overflow-y:auto;scrollbar-width:none}
+.onboard-content::-webkit-scrollbar{display:none}
+.onboard-step{font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--accent);font-weight:700;margin-bottom:12px}
+.onboard-question{font-family:'Archivo',sans-serif;font-weight:800;font-stretch:75%;font-size:30px;line-height:1.05;letter-spacing:-.02em;margin-bottom:10px}
+.onboard-hint{font-size:13.5px;color:var(--text-dim);line-height:1.5;margin-bottom:26px}
+
+.expertise-list{display:flex;flex-direction:column;gap:7px}
+.expertise-row{
+  display:flex;align-items:center;justify-content:space-between;padding:13px 15px;
+  background:var(--surface);border:1px solid var(--rule-strong);border-radius:9px;
+  font-size:13.5px;font-weight:500;text-align:left;width:100%;color:var(--text);transition:all .15s;
+}
+.expertise-row.selected{background:rgba(56,189,248,.10);border-color:var(--accent)}
+.expertise-row .check{
+  width:22px;height:22px;border:1.5px solid var(--rule-strong);border-radius:5px;
+  display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;
+}
+.expertise-row.selected .check{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:900}
+.expertise-row .label{display:flex;flex-direction:column;gap:3px}
+.expertise-row .meta{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;font-weight:500}
+
+.summary-block{margin-bottom:14px}
+.summary-block .summary-label{font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--text-dim);margin-bottom:6px}
+.summary-block .summary-value{font-size:14px;color:var(--text)}
+.summary-block .summary-empty{color:var(--text-very-dim);font-style:italic;font-size:13px}
+
+/* ===== FILTER STRIP ===== */
+.filter-strip{padding:12px 18px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--rule);flex-shrink:0}
+.filter-strip::-webkit-scrollbar{display:none}
+.chip{
+  font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.06em;padding:7px 11px;
+  background:transparent;border:1px solid var(--rule-strong);border-radius:4px;color:var(--text-dim);
+  white-space:nowrap;text-transform:uppercase;font-weight:500;flex-shrink:0;transition:all .15s;
+}
+.chip.active{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:700}
+.chip.with-count{background:var(--surface);color:var(--text)}
+.chip:active{transform:scale(.95)}
+
+/* ===== CONSTELLATION ===== */
+.constellation{flex:1;position:relative;overflow:hidden;min-height:0}
+.constellation-bg{position:absolute;inset:0;background-image:radial-gradient(circle at 30% 40%, rgba(56,189,248,.06), transparent 45%),radial-gradient(circle at 70% 70%, rgba(192,132,252,.05), transparent 45%);pointer-events:none}
+.constellation-empty{
+  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:24px;text-align:center;color:var(--text-dim);font-size:13.5px;line-height:1.5;
+}
+.constellation-empty .icon{font-size:32px;margin-bottom:14px;opacity:.4}
+
+.tech{
+  position:absolute;display:flex;flex-direction:column;align-items:center;
+  transform:translate(-50%,-50%);text-align:center;cursor:pointer;
+  transition:opacity .25s,transform .2s;background:none;padding:0;
+}
+.tech:active .tech-avatar{transform:scale(.95)}
+.tech.hidden-tech{opacity:.12;pointer-events:none}
+.tech-avatar{
+  border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-family:'Archivo',sans-serif;font-weight:800;font-stretch:75%;position:relative;
+  border:2px solid var(--phone-screen);box-shadow:0 4px 14px rgba(0,0,0,.4),0 0 0 1px rgba(255,255,255,.05);
+  letter-spacing:-.02em;transition:transform .15s,outline-color .2s;
+}
+.tech.online .tech-avatar{outline:1.5px solid var(--accent);outline-offset:2px}
+.tech.dim .tech-avatar{opacity:.5}
+.tech-online-dot{position:absolute;bottom:0;right:2px;width:11px;height:11px;background:var(--online);border:2px solid var(--phone-screen);border-radius:50%}
+.tech-name{font-size:10.5px;font-weight:600;margin-top:6px;white-space:nowrap;letter-spacing:-.01em}
+.tech.dim .tech-name{color:var(--text-very-dim)}
+.tech-tag{font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--text-dim);margin-top:1px;letter-spacing:.04em;text-transform:uppercase}
+.tech-check{position:absolute;top:-2px;right:-2px;width:22px;height:22px;background:var(--accent);border:2px solid var(--phone-screen);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--on-accent);font-weight:900;animation:pop .18s}
+@keyframes pop{0%{transform:scale(0)}60%{transform:scale(1.15)}100%{transform:scale(1)}}
+.tech.selected .tech-avatar{outline:2px solid var(--accent);outline-offset:3px}
+
+.av-1{background:linear-gradient(135deg,#7dd3fc,#38bdf8);color:#082f49}
+.av-2{background:linear-gradient(135deg,#c4b5fd,#a78bfa);color:#2e1065}
+.av-3{background:linear-gradient(135deg,#f9a8d4,#f472b6);color:#500724}
+.av-4{background:linear-gradient(135deg,#6ee7b7,#34d399);color:#022c22}
+.av-5{background:linear-gradient(135deg,#fcd34d,#fbbf24);color:#422006}
+.av-6{background:linear-gradient(135deg,#67e8f9,#22d3ee);color:#083344}
+.av-7{background:linear-gradient(135deg,#a5b4fc,#818cf8);color:#1e1b4b}
+.av-8{background:linear-gradient(135deg,#fda4af,#fb7185);color:#4c0519}
+
+/* ===== BOTTOM BAR ===== */
+.bottom-bar{padding:14px 18px max(28px,env(safe-area-inset-bottom));border-top:1px solid var(--rule);background:var(--phone-screen);flex-shrink:0;display:flex;gap:8px}
+.action-button{
+  flex:1;padding:14px;background:var(--surface);color:var(--text);border:1px solid var(--rule-strong);
+  border-radius:10px;font-family:'Manrope',sans-serif;font-weight:600;font-size:14px;
+  display:flex;align-items:center;justify-content:center;gap:8px;letter-spacing:-.01em;transition:transform .1s;
+}
+.action-button:active{transform:scale(.985)}
+.action-button.primary{background:var(--accent);color:var(--on-accent);border-color:var(--accent);box-shadow:0 8px 20px -8px var(--accent)}
+.action-button.cancel{flex:0 0 50px;background:transparent;color:var(--text-dim);font-size:18px}
+.action-button:disabled{opacity:.4;pointer-events:none}
+.action-button .count{font-family:'JetBrains Mono',monospace;background:rgba(10,20,40,.18);padding:3px 7px;border-radius:4px;font-size:11px;margin-right:4px;font-weight:700}
+
+/* ===== CHATS LIST ===== */
+.chats-list{flex:1;overflow-y:auto;padding:8px 0;scrollbar-width:none}
+.chats-list::-webkit-scrollbar{display:none}
+.chat-row{
+  display:flex;gap:12px;padding:14px 18px;align-items:flex-start;cursor:pointer;
+  border-bottom:1px solid var(--rule);transition:background .15s;
+}
+.chat-row:active{background:var(--surface)}
+.chat-row .icon-circle{
+  width:42px;height:42px;border-radius:50%;background:var(--surface-strong);
+  display:flex;align-items:center;justify-content:center;font-family:'Archivo',sans-serif;
+  font-weight:800;font-size:13px;color:var(--accent);flex-shrink:0;
+}
+.chat-row .body{flex:1;min-width:0}
+.chat-row .title-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.chat-row .title{font-family:'Archivo',sans-serif;font-weight:700;font-stretch:75%;font-size:14px;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-row .time{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;flex-shrink:0}
+.chat-row .preview{font-size:12px;color:var(--text-dim);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-row .badges{display:flex;gap:5px;margin-top:6px;align-items:center}
+.badge{font-family:'JetBrains Mono',monospace;font-size:8.5px;text-transform:uppercase;letter-spacing:.08em;padding:2px 6px;border-radius:3px;background:var(--surface);color:var(--text-dim);font-weight:600}
+.badge.resolved{background:rgba(52,211,153,.10);color:var(--online)}
+.badge.live{background:rgba(56,189,248,.10);color:var(--accent)}
+
+.chats-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;text-align:center;color:var(--text-dim);font-size:13.5px;line-height:1.5}
+.chats-empty .icon{font-size:32px;margin-bottom:14px;opacity:.4}
+
+/* ===== TABS ===== */
+.tabs{display:flex;border-bottom:1px solid var(--rule);flex-shrink:0;background:var(--phone-screen)}
+.tab{
+  flex:1;padding:12px 8px;font-family:'JetBrains Mono',monospace;font-size:10.5px;
+  text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);font-weight:600;
+  background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;
+}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* ===== CHAT VIEW ===== */
+.chat-header{padding:max(8px,env(safe-area-inset-top)) 18px 14px;border-bottom:1px solid var(--rule);flex-shrink:0;display:flex;gap:10px;align-items:flex-start}
+.back-btn{width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--text);flex-shrink:0;margin-top:2px}
+.chat-header-content{flex:1;min-width:0}
+.chat-meta{font-family:'JetBrains Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:var(--text-dim);display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.chat-meta .live-dot{width:6px;height:6px;background:var(--online);border-radius:50%;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.chat-title{font-family:'Archivo',sans-serif;font-weight:800;font-stretch:75%;font-size:16px;line-height:1.2;letter-spacing:-.01em}
+.chat-title .accent{color:var(--accent)}
+.chat-participants{display:flex;align-items:center;gap:4px;margin-top:9px;flex-wrap:wrap}
+.mini-av{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--phone-screen);margin-left:-7px;font-family:'Archivo',sans-serif;font-weight:800;font-size:9px;display:flex;align-items:center;justify-content:center}
+.mini-av:first-child{margin-left:0}
+.mini-av.ai{background:linear-gradient(135deg,#c4b5fd,#8b5cf6);color:#fff}
+.participants-count{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;margin-left:8px}
+.chat-actions{display:flex;gap:4px;align-items:center;margin-left:auto}
+.chat-actions .icon-btn{font-size:14px;width:30px;height:30px}
+
+.ai-banner{margin:12px 18px 0;padding:10px 12px;background:var(--ai-glow);border:1px solid rgba(192,132,252,.30);border-radius:8px;display:flex;align-items:center;gap:11px;flex-shrink:0}
+.ai-icon{width:28px;height:28px;background:linear-gradient(135deg,#c4b5fd,#8b5cf6);border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:'Archivo',sans-serif;font-weight:900;font-size:12px;color:#fff;flex-shrink:0}
+.ai-banner-text{flex:1}
+.ai-banner-title{font-size:12px;font-weight:700;color:var(--ai)}
+.ai-banner-sub{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
+
+.chat-body{flex:1;padding:14px 16px;overflow-y:auto;display:flex;flex-direction:column;gap:11px;scrollbar-width:none}
+.chat-body::-webkit-scrollbar{display:none}
+.msg-row{display:flex;gap:8px;align-items:flex-end}
+.msg-row.own{justify-content:flex-end}
+.msg-row.own .mini-av{display:none}
+.msg-bubble{max-width:80%;padding:10px 13px;background:var(--surface);border:1px solid var(--rule-strong);border-radius:14px;border-bottom-left-radius:3px;font-size:13.5px;line-height:1.4;animation:msgIn .25s ease-out;word-wrap:break-word;overflow-wrap:break-word}
+@keyframes msgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.msg-row.own .msg-bubble{background:var(--accent);color:var(--on-accent);border-color:var(--accent);border-bottom-left-radius:14px;border-bottom-right-radius:3px}
+.msg-bubble.ai{background:var(--ai-glow);border-color:rgba(192,132,252,.35)}
+.msg-bubble.system{background:transparent;border:none;color:var(--text-very-dim);font-size:11px;text-align:center;margin:0 auto;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.08em}
+.msg-row.system{justify-content:center}
+.msg-author{font-family:'JetBrains Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);margin-bottom:4px;font-weight:600}
+.msg-bubble.ai .msg-author{color:var(--ai)}
+.msg-time{font-family:'JetBrains Mono',monospace;font-size:8.5px;color:var(--text-very-dim);text-transform:uppercase;letter-spacing:.08em;margin-top:5px}
+.msg-text{white-space:pre-wrap}
+.typing{display:flex;gap:4px;padding:12px 14px;background:var(--ai-glow);border:1px solid rgba(192,132,252,.35);border-radius:14px;border-bottom-left-radius:3px;width:fit-content}
+.typing span{width:7px;height:7px;background:var(--ai);border-radius:50%;animation:typing 1.4s infinite}
+.typing span:nth-child(2){animation-delay:.15s}
+.typing span:nth-child(3){animation-delay:.3s}
+@keyframes typing{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+
+.chat-input{padding:12px 14px max(22px,env(safe-area-inset-bottom));border-top:1px solid var(--rule);display:flex;gap:7px;align-items:center;flex-shrink:0;background:var(--phone-screen)}
+.input-field{flex:1;min-height:38px;max-height:120px;background:var(--surface);border:1px solid var(--rule-strong);border-radius:19px;padding:9px 14px;font-size:14px;color:var(--text);outline:none;resize:none;font-family:inherit;line-height:1.3}
+.input-field::placeholder{color:var(--text-dim)}
+.input-field:focus{border-color:var(--accent)}
+.input-send{width:38px;height:38px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--on-accent);flex-shrink:0;font-size:18px;font-weight:700}
+.input-send:disabled{opacity:.4;background:var(--surface)}
+.input-send:active{transform:scale(.95)}
+
+/* ===== SETTINGS / MODAL ===== */
+.modal{position:fixed;inset:0;background:rgba(10,20,40,.8);backdrop-filter:blur(8px);z-index:200;display:none;align-items:flex-end;animation:fadeIn .2s}
+.modal.active{display:flex}
+.modal-sheet{
+  width:100%;background:var(--phone-screen);border-radius:18px 18px 0 0;
+  max-height:85vh;display:flex;flex-direction:column;animation:slideUp .25s;
+  border-top:1px solid var(--rule-strong);
+}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-header{padding:18px 22px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--rule)}
+.modal-title{font-family:'Archivo',sans-serif;font-weight:800;font-stretch:75%;font-size:20px;letter-spacing:-.01em}
+.modal-close{font-size:22px;color:var(--text-dim);width:32px;height:32px;display:flex;align-items:center;justify-content:center}
+.modal-body{padding:18px 22px;overflow-y:auto;scrollbar-width:none;flex:1}
+.modal-body::-webkit-scrollbar{display:none}
+.modal-footer{padding:14px 22px max(22px,env(safe-area-inset-bottom));border-top:1px solid var(--rule)}
+
+.filter-group{margin-bottom:22px}
+.filter-group-title{font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.14em;color:var(--text-dim);margin-bottom:10px;display:flex;justify-content:space-between;border-bottom:1px solid var(--rule);padding-bottom:7px}
+.filter-group-title .count{color:var(--accent);font-weight:700}
+.chip-set{display:flex;flex-wrap:wrap;gap:5px}
+.chip-set .chip{font-size:10.5px;padding:7px 10px}
+.chip-set .chip.selected{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:700}
+
+.settings-row{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--rule)}
+.settings-row:last-child{border-bottom:none}
+.settings-label{font-size:14px;font-weight:500}
+.settings-value{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em}
+.settings-action{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;font-weight:700;padding:6px 10px;border:1px solid var(--accent);border-radius:5px}
+.settings-action.danger{color:var(--danger);border-color:var(--danger)}
+
+/* ===== TOAST ===== */
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(10,20,40,.95);border:1px solid var(--rule-strong);padding:10px 18px;border-radius:8px;font-size:13px;color:var(--text);z-index:300;animation:toastIn .25s;max-width:90vw;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.toast.error{border-color:var(--danger);color:var(--danger)}
+.toast.success{border-color:var(--online);color:var(--online)}
+@keyframes toastIn{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}
+
+/* ===== LOADER ===== */
+.loader{display:inline-block;width:14px;height:14px;border:2px solid var(--rule-strong);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.fullscreen-loader{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:var(--bg);z-index:500}
+.fullscreen-loader .loader{width:32px;height:32px;border-width:3px}
+.fullscreen-loader .label{font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--text-dim)}
+
+.version-tag{position:fixed;bottom:6px;right:8px;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-very-dim);letter-spacing:.08em;z-index:50;pointer-events:none}
+
+@media(min-width:768px){
+  .app{max-width:440px;margin:0 auto;border-left:1px solid var(--rule);border-right:1px solid var(--rule)}
+}
+</style>
+</head>
+<body>
+
+<div class="app" id="app">
+
+  <!-- LOADING SCREEN -->
+  <div class="view active" id="view-loading">
+    <div class="fullscreen-loader">
+      <div class="loader"></div>
+      <div class="label">Liftaro lädt...</div>
+    </div>
+  </div>
+
+  <!-- LOGIN SCREEN -->
+  <div class="view" id="view-login">
+    <div class="login-content">
+      <div class="welcome-eyebrow">PEER · SUPPORT</div>
+      <div class="welcome-title">Brauchst du<br>einen <span class="accent">zweiten</span><br>Mann?</div>
+      <div class="welcome-text">Live-Support für Aufzugstechniker.<br>Der richtige Mensch + das richtige Wissen — in unter 30 Sekunden.</div>
+      <div class="input-block">
+        <label class="input-label">Dein persönlicher Schlüssel</label>
+        <input type="text" class="text-input" id="loginKey" placeholder="z.B. mw-7f3k-9q2l" autocomplete="off" spellcheck="false">
+        <div class="error-msg" id="loginError"></div>
+      </div>
+      <button class="action-button primary" id="loginBtn" onclick="doLogin()">Einloggen →</button>
+    </div>
+  </div>
+
+  <!-- ONBOARDING SCREEN -->
+  <div class="view" id="view-onboard">
+    <div class="onboard-progress">
+      <div class="progress-dot" id="ob-dot-0"></div>
+      <div class="progress-dot" id="ob-dot-1"></div>
+      <div class="progress-dot" id="ob-dot-2"></div>
+      <div class="progress-dot" id="ob-dot-3"></div>
+    </div>
+    <div class="onboard-content" id="onboardContent"></div>
+    <div class="bottom-bar">
+      <button class="action-button cancel" id="obBackBtn" onclick="onboardBack()" style="display:none">←</button>
+      <button class="action-button primary" id="obNextBtn" onclick="onboardNext()">Weiter →</button>
+    </div>
+  </div>
+
+  <!-- HOME SCREEN -->
+  <div class="view" id="view-home">
+    <div class="app-header">
+      <div class="app-logo"><span class="dot"></span>LIFTARO PEER</div>
+      <div class="profile-mini" id="profileBtn" onclick="openSettings()"></div>
+    </div>
+    <div class="tabs">
+      <button class="tab active" id="tab-konstellation" onclick="switchTab('konstellation')">Konstellation</button>
+      <button class="tab" id="tab-chats" onclick="switchTab('chats')">Meine Chats</button>
+    </div>
+
+    <!-- KONSTELLATION TAB -->
+    <div id="tab-content-konstellation" style="display:flex;flex-direction:column;flex:1;min-height:0">
+      <div class="filter-strip" id="filterStrip"></div>
+      <div class="constellation" id="constellation">
+        <div class="constellation-bg"></div>
+      </div>
+      <div class="bottom-bar" id="homeBottomBar">
+        <button class="action-button primary" id="multiSelectBtn" onclick="toggleMultiSelect()">+ Mehrere auswählen</button>
+      </div>
+    </div>
+
+    <!-- CHATS TAB -->
+    <div id="tab-content-chats" style="display:none;flex-direction:column;flex:1;min-height:0">
+      <div class="chats-list" id="chatsList"></div>
+    </div>
+  </div>
+
+  <!-- CHAT SCREEN -->
+  <div class="view" id="view-chat">
+    <div class="chat-header">
+      <button class="back-btn" onclick="closeChat()">←</button>
+      <div class="chat-header-content">
+        <div class="chat-meta"><span class="live-dot"></span><span id="chatMetaText">LIVE</span></div>
+        <div class="chat-title" id="chatTitle"></div>
+        <div class="chat-participants" id="chatParticipants"></div>
+      </div>
+      <div class="chat-actions">
+        <button class="icon-btn" onclick="resolveCurrentChat()" title="Als gelöst markieren">✓</button>
+      </div>
+    </div>
+    <div class="ai-banner">
+      <div class="ai-icon">KI</div>
+      <div class="ai-banner-text">
+        <div class="ai-banner-title">Liftaro KI-Agent</div>
+        <div class="ai-banner-sub">Mit @KI ansprechen</div>
+      </div>
+    </div>
+    <div class="chat-body" id="chatBody"></div>
+    <div class="chat-input">
+      <textarea class="input-field" id="chatInput" placeholder="Nachricht oder @KI fragen..." rows="1"></textarea>
+      <button class="input-send" id="chatSendBtn" onclick="sendChatMessage()">→</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- FILTER MODAL -->
+<div class="modal" id="filterModal">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <div class="modal-title">Filter</div>
+      <button class="modal-close" onclick="closeModal('filterModal')">×</button>
+    </div>
+    <div class="modal-body" id="filterModalBody"></div>
+    <div class="modal-footer">
+      <button class="action-button primary" onclick="applyFilters()" id="applyFilterBtn">Anzeigen</button>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="modal" id="settingsModal">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <div class="modal-title">Profil & Einstellungen</div>
+      <button class="modal-close" onclick="closeModal('settingsModal')">×</button>
+    </div>
+    <div class="modal-body" id="settingsModalBody"></div>
+  </div>
+</div>
+
+<div class="version-tag" id="versionTag"></div>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const APP_VERSION = 'v1.0';
+const APP_CONFIG = {
+  AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
+  MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
+  APP_BASE_ID: 'appEuIXOga4BiYEM5',
+  PROJECT_ID: 'p_1777804686529',
+  PROJECT_NAME: 'Support App FLP',
+};
+let APP_KEYS = { airtableWriteKey: null, anthropicKey: null, user: null };
+
+// EXPERTISE-DATEN
+const MODELS = [
+  {name:'Schindler 3300', meta:'SEILAUFZUG · STANDARD'},
+  {name:'Schindler 5500', meta:'SEILAUFZUG · MID-RISE'},
+  {name:'KONE Monospace', meta:'MASCHINENRAUMLOS'},
+  {name:'TKE evolution', meta:'SEILAUFZUG'},
+  {name:'OTIS Gen2', meta:'GURT-AUFZUG'},
+  {name:'Schmitt+Sohn', meta:'STANDARD'},
+];
+const CONTROLS = [
+  {name:'TMS9000', meta:'STEUERUNG'},
+  {name:'Kollmorgen', meta:'STEUERUNG'},
+  {name:'Ziehl-Abegg', meta:'FU + STEUERUNG'},
+  {name:'Böhnke+Partner', meta:'STEUERUNG'},
+  {name:'New Lift', meta:'STEUERUNG'},
+];
+const COMPONENTS = [
+  {name:'Türsysteme', meta:'KOMPONENTE'},
+  {name:'Frequenzumrichter', meta:'KOMPONENTE'},
+  {name:'Hydraulik', meta:'KOMPONENTE'},
+  {name:'Notrufanlagen', meta:'KOMPONENTE'},
+  {name:'Sicherheitskreis', meta:'KOMPONENTE'},
+];
+
+// ============================================================
+// STATE
+// ============================================================
+let STATE = {
+  myProfile: null,        // TechnikerProfile record
+  techProfiles: [],       // alle TechnikerProfiles
+  chats: [],              // alle Chats für mich
+  currentChat: null,      // aktiver Chat
+  currentMessages: [],    // Messages des aktiven Chats
+  multiSelect: false,
+  selected: new Set(),
+  filterModal: { models: new Set(), controls: new Set(), components: new Set(), online: false },
+  filtersActive: false,
+  activeTab: 'konstellation',
+};
+
+// ============================================================
+// AIRTABLE HELPERS
+// ============================================================
+async function atRead(table, filter, base){
+  base = base || APP_CONFIG.APP_BASE_ID;
+  let url = 'https://api.airtable.com/v0/' + base + '/' + encodeURIComponent(table);
+  if(filter) url += '?filterByFormula=' + encodeURIComponent(filter);
+  const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + APP_CONFIG.AIRTABLE_READ_KEY } });
+  if(!res.ok) throw new Error('Lesen fehlgeschlagen: ' + res.status);
+  return (await res.json()).records || [];
+}
+async function atWrite(table, fields){
+  if(!APP_KEYS.airtableWriteKey) throw new Error('Bitte einloggen');
+  const url = 'https://api.airtable.com/v0/' + APP_CONFIG.APP_BASE_ID + '/' + encodeURIComponent(table);
+  const res = await fetch(url, {
+    method:'POST',
+    headers:{'Authorization':'Bearer '+APP_KEYS.airtableWriteKey,'Content-Type':'application/json'},
+    body: JSON.stringify({ fields })
+  });
+  if(!res.ok){ const e = await res.text(); throw new Error('Schreiben fehlgeschlagen: '+e); }
+  return await res.json();
+}
+async function atUpdate(table, recordId, fields){
+  if(!APP_KEYS.airtableWriteKey) throw new Error('Bitte einloggen');
+  const url = 'https://api.airtable.com/v0/' + APP_CONFIG.APP_BASE_ID + '/' + encodeURIComponent(table) + '/' + recordId;
+  const res = await fetch(url, {
+    method:'PATCH',
+    headers:{'Authorization':'Bearer '+APP_KEYS.airtableWriteKey,'Content-Type':'application/json'},
+    body: JSON.stringify({ fields })
+  });
+  if(!res.ok) throw new Error('Update fehlgeschlagen');
+  return await res.json();
+}
+
+// TABELLE ANLEGEN (Meta-API)
+async function ensureTable(tableName, fields){
+  if(!APP_KEYS.airtableWriteKey) throw new Error('Bitte einloggen');
+  const metaRes = await fetch(
+    'https://api.airtable.com/v0/meta/bases/' + APP_CONFIG.APP_BASE_ID + '/tables',
+    { headers: { 'Authorization':'Bearer '+APP_KEYS.airtableWriteKey } }
+  );
+  const meta = await metaRes.json();
+  const exists = (meta.tables || []).find(t => t.name === tableName);
+  if(exists) return exists;
+  const createRes = await fetch(
+    'https://api.airtable.com/v0/meta/bases/' + APP_CONFIG.APP_BASE_ID + '/tables',
+    { method:'POST',
+      headers:{'Authorization':'Bearer '+APP_KEYS.airtableWriteKey,'Content-Type':'application/json'},
+      body: JSON.stringify({ name: tableName, fields }) }
+  );
+  if(!createRes.ok){ const e = await createRes.text(); throw new Error('Tabelle anlegen fehlgeschlagen: '+e); }
+  return await createRes.json();
+}
+
+// ============================================================
+// LOGIN
+// ============================================================
+async function loginWithUserKey(userKey){
+  const headers = { 'Authorization': 'Bearer ' + APP_CONFIG.AIRTABLE_READ_KEY };
+  const formula = "AND({api_key}='" + userKey + "',{status}='aktiv')";
+  const userRes = await fetch(
+    'https://api.airtable.com/v0/' + APP_CONFIG.APP_BASE_ID + '/User?filterByFormula=' + encodeURIComponent(formula),
+    { headers }
+  );
+  const userData = await userRes.json();
+  if(!userData.records || !userData.records.length) throw new Error('Ungültiger Key');
+  APP_KEYS.user = { ...userData.records[0].fields, _id: userData.records[0].id };
+
+  // Projekt-Keys
+  const projectKeysRes = await fetch(
+    'https://api.airtable.com/v0/' + APP_CONFIG.MASTER_BASE_ID + '/Keys?filterByFormula=' + encodeURIComponent("{project_id}='" + APP_CONFIG.PROJECT_ID + "'"),
+    { headers }
+  );
+  const projectKeysData = await projectKeysRes.json();
+  (projectKeysData.records || []).forEach(rec => {
+    if(rec.fields.key_name === 'anthropicKey') APP_KEYS.anthropicKey = rec.fields.key_value;
+    if(rec.fields.key_name === 'airtableWriteKey') APP_KEYS.airtableWriteKey = rec.fields.key_value;
+  });
+
+  // Globale Keys (Fallback)
+  if(!APP_KEYS.anthropicKey){
+    const gRes = await fetch(
+      'https://api.airtable.com/v0/' + APP_CONFIG.MASTER_BASE_ID + "/Keys?filterByFormula=" + encodeURIComponent("{project_id}='GLOBAL'"),
+      { headers }
+    );
+    const gData = await gRes.json();
+    (gData.records || []).forEach(rec => {
+      if(rec.fields.key_name === 'anthropicKey') APP_KEYS.anthropicKey = rec.fields.key_value;
+    });
+  }
+
+  localStorage.setItem('user_key_' + APP_CONFIG.PROJECT_ID, userKey);
+  return APP_KEYS.user;
+}
+
+async function tryAutoLogin(){
+  const savedKey = localStorage.getItem('user_key_' + APP_CONFIG.PROJECT_ID);
+  if(!savedKey) return false;
+  try { await loginWithUserKey(savedKey); return true; }
+  catch(e){ localStorage.removeItem('user_key_' + APP_CONFIG.PROJECT_ID); return false; }
+}
+
+function logout(){
+  localStorage.removeItem('user_key_' + APP_CONFIG.PROJECT_ID);
+  APP_KEYS = { user: null };
+  STATE = { myProfile: null, techProfiles: [], chats: [], currentChat: null, currentMessages: [], multiSelect: false, selected: new Set(), filterModal: { models: new Set(), controls: new Set(), components: new Set(), online: false }, filtersActive: false, activeTab: 'konstellation' };
+  closeModal('settingsModal');
+  showView('login');
+}
+
+async function doLogin(){
+  const key = document.getElementById('loginKey').value.trim();
+  const errEl = document.getElementById('loginError');
+  const btn = document.getElementById('loginBtn');
+  errEl.textContent = '';
+  if(!key){ errEl.textContent = 'Bitte Key eingeben'; return; }
+  btn.disabled = true; btn.innerHTML = '<span class="loader"></span> Prüfe...';
+  try {
+    await loginWithUserKey(key);
+    await afterLogin();
+  } catch(e){
+    errEl.textContent = e.message || 'Login fehlgeschlagen';
+    btn.disabled = false; btn.innerHTML = 'Einloggen →';
+  }
+}
+
+// ============================================================
+// AFTER LOGIN: SETUP TABLES + LOAD STATE
+// ============================================================
+async function afterLogin(){
+  showView('loading');
+  try {
+    // Tabellen sicherstellen
+    await ensureAllTables();
+    // Eigenes Profil laden / heartbeat
+    await loadOrCreateMyProfile();
+    // Onboarding nötig?
+    if(!STATE.myProfile.fields.onboarding_done){
+      showView('onboard');
+      onboardRender();
+      return;
+    }
+    await afterOnboarding();
+  } catch(e){
+    toast(e.message || 'Setup fehlgeschlagen', 'error');
+    setTimeout(()=>showView('login'), 1500);
+  }
+}
+
+async function ensureAllTables(){
+  await ensureTable('TechnikerProfile', [
+    { name:'api_key', type:'singleLineText' },
+    { name:'name', type:'singleLineText' },
+    { name:'models', type:'multilineText' },
+    { name:'controls', type:'multilineText' },
+    { name:'components', type:'multilineText' },
+    { name:'last_seen', type:'singleLineText' },
+    { name:'onboarding_done', type:'checkbox', options:{ icon:'check', color:'greenBright' } },
+  ]);
+  await ensureTable('Chats', [
+    { name:'chat_id', type:'singleLineText' },
+    { name:'title', type:'singleLineText' },
+    { name:'participants', type:'multilineText' },
+    { name:'creator_key', type:'singleLineText' },
+    { name:'status', type:'singleLineText' },
+    { name:'created', type:'singleLineText' },
+    { name:'last_msg', type:'singleLineText' },
+    { name:'last_msg_at', type:'singleLineText' },
+  ]);
+  await ensureTable('Messages', [
+    { name:'msg_id', type:'singleLineText' },
+    { name:'chat_id', type:'singleLineText' },
+    { name:'sender_key', type:'singleLineText' },
+    { name:'sender_name', type:'singleLineText' },
+    { name:'msg_type', type:'singleLineText' },
+    { name:'content', type:'multilineText' },
+    { name:'created', type:'singleLineText' },
+  ]);
+}
+
+async function loadOrCreateMyProfile(){
+  const key = APP_KEYS.user.api_key;
+  const recs = await atRead('TechnikerProfile', "{api_key}='"+key+"'");
+  if(recs.length){
+    STATE.myProfile = recs[0];
+    // Heartbeat
+    await atUpdate('TechnikerProfile', recs[0].id, { last_seen: new Date().toISOString() });
+  } else {
+    const created = await atWrite('TechnikerProfile', {
+      api_key: key,
+      name: APP_KEYS.user.name || key,
+      models: '[]',
+      controls: '[]',
+      components: '[]',
+      last_seen: new Date().toISOString(),
+      onboarding_done: false,
+    });
+    STATE.myProfile = created;
+  }
+}
+
+async function afterOnboarding(){
+  await loadHomeData();
+  showView('home');
+  renderHome();
+  // Heartbeat alle 60s
+  if(window._hbInterval) clearInterval(window._hbInterval);
+  window._hbInterval = setInterval(()=>{
+    if(STATE.myProfile) atUpdate('TechnikerProfile', STATE.myProfile.id, { last_seen: new Date().toISOString() }).catch(()=>{});
+  }, 60000);
+}
+
+async function loadHomeData(){
+  STATE.techProfiles = await atRead('TechnikerProfile');
+  // Eigene Chats
+  const allChats = await atRead('Chats');
+  STATE.chats = allChats.filter(c => {
+    const ps = parseList(c.fields.participants);
+    return ps.includes(APP_KEYS.user.api_key);
+  }).sort((a,b)=>(b.fields.last_msg_at||'').localeCompare(a.fields.last_msg_at||''));
+}
+
+// ============================================================
+// ONBOARDING
+// ============================================================
+let OB_STEP = 0;
+let OB_DATA = { models: new Set(), controls: new Set(), components: new Set() };
+
+function onboardRender(){
+  // Bestehende Daten vorbefüllen
+  if(STATE.myProfile){
+    OB_DATA.models = new Set(parseList(STATE.myProfile.fields.models));
+    OB_DATA.controls = new Set(parseList(STATE.myProfile.fields.controls));
+    OB_DATA.components = new Set(parseList(STATE.myProfile.fields.components));
+  }
+  for(let i=0;i<4;i++){
+    const dot = document.getElementById('ob-dot-'+i);
+    dot.className = 'progress-dot' + (i<OB_STEP?' done':(i===OB_STEP?' active':''));
+  }
+  document.getElementById('obBackBtn').style.display = OB_STEP>0 ? 'flex' : 'none';
+  document.getElementById('obNextBtn').textContent = OB_STEP===3 ? 'Loslegen →' : 'Weiter →';
+  const c = document.getElementById('onboardContent');
+  if(OB_STEP===0){
+    c.innerHTML = renderOnboardStep('Schritt 01 / 04','Welche Modelle kennst du?','Mehrfachauswahl. Bestimmt, bei welchen Anfragen du gefunden wirst.', MODELS, OB_DATA.models, 'models');
+  } else if(OB_STEP===1){
+    c.innerHTML = renderOnboardStep('Schritt 02 / 04','Welche Steuerungen?','Mehrfachauswahl möglich.', CONTROLS, OB_DATA.controls, 'controls');
+  } else if(OB_STEP===2){
+    c.innerHTML = renderOnboardStep('Schritt 03 / 04','Spezialisierungen?','Komponenten in denen du tief drin bist.', COMPONENTS, OB_DATA.components, 'components');
+  } else {
+    c.innerHTML = renderOnboardSummary();
+  }
+}
+
+function renderOnboardStep(step, q, hint, list, set, key){
+  let html = '<div class="onboard-step">'+step+'</div>';
+  html += '<div class="onboard-question">'+q+'</div>';
+  html += '<div class="onboard-hint">'+hint+'</div>';
+  html += '<div class="expertise-list">';
+  list.forEach(item=>{
+    const sel = set.has(item.name);
+    html += '<button class="expertise-row '+(sel?'selected':'')+'" onclick="toggleExpertise(\''+key+'\',\''+esc(item.name)+'\')">';
+    html += '<span class="label"><span>'+item.name+'</span><span class="meta">'+item.meta+'</span></span>';
+    html += '<span class="check">'+(sel?'✓':'')+'</span>';
+    html += '</button>';
+  });
+  html += '</div>';
+  return html;
+}
+function renderOnboardSummary(){
+  const fmt = (s)=> s.size ? Array.from(s).join(' · ') : '<span class="summary-empty">— nichts gewählt</span>';
+  return `
+    <div class="onboard-step">Schritt 04 / 04</div>
+    <div class="onboard-question">Deine Expertise</div>
+    <div class="onboard-hint">So tauchst du in der Konstellation auf. Du kannst das jederzeit in den Einstellungen ändern.</div>
+    <div class="summary-block"><div class="summary-label">Modelle</div><div class="summary-value">${fmt(OB_DATA.models)}</div></div>
+    <div class="summary-block"><div class="summary-label">Steuerungen</div><div class="summary-value">${fmt(OB_DATA.controls)}</div></div>
+    <div class="summary-block"><div class="summary-label">Komponenten</div><div class="summary-value">${fmt(OB_DATA.components)}</div></div>
+  `;
+}
+function toggleExpertise(key, val){
+  const set = OB_DATA[key];
+  if(set.has(val)) set.delete(val); else set.add(val);
+  onboardRender();
+}
+function onboardBack(){ if(OB_STEP>0){ OB_STEP--; onboardRender(); } }
+async function onboardNext(){
+  if(OB_STEP<3){ OB_STEP++; onboardRender(); return; }
+  // Speichern
+  const btn = document.getElementById('obNextBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="loader"></span> Speichere...';
+  try {
+    await atUpdate('TechnikerProfile', STATE.myProfile.id, {
+      models: JSON.stringify(Array.from(OB_DATA.models)),
+      controls: JSON.stringify(Array.from(OB_DATA.controls)),
+      components: JSON.stringify(Array.from(OB_DATA.components)),
+      onboarding_done: true,
+    });
+    // Reload
+    const recs = await atRead('TechnikerProfile', "{api_key}='"+APP_KEYS.user.api_key+"'");
+    STATE.myProfile = recs[0];
+    OB_STEP = 0;
+    await afterOnboarding();
+  } catch(e){
+    toast(e.message,'error');
+    btn.disabled = false; btn.innerHTML = 'Loslegen →';
+  }
+}
+
+// ============================================================
+// HOME — KONSTELLATION
+// ============================================================
+function renderHome(){
+  // Profile-Avatar Initialen
+  const initials = makeInitials(APP_KEYS.user.name || 'XX');
+  document.getElementById('profileBtn').textContent = initials;
+  renderFilterStrip();
+  renderConstellation();
+  renderChatsList();
+}
+
+function renderFilterStrip(){
+  const strip = document.getElementById('filterStrip');
+  const filterCount = STATE.filterModal.models.size + STATE.filterModal.controls.size + STATE.filterModal.components.size + (STATE.filterModal.online?1:0);
+  let html = '<button class="chip '+(filterCount?'with-count':'')+'" onclick="openFilterModal()">⚙ Filter'+(filterCount?' · '+filterCount:'')+'</button>';
+  // Schnellfilter: ein paar populäre
+  const quick = [
+    {label:'Online', type:'online'},
+    {label:'Schindler 3300', type:'model', val:'Schindler 3300'},
+    {label:'KONE Monospace', type:'model', val:'KONE Monospace'},
+    {label:'TKE evolution', type:'model', val:'TKE evolution'},
+    {label:'TMS9000', type:'control', val:'TMS9000'},
+    {label:'Türsysteme', type:'component', val:'Türsysteme'},
+  ];
+  quick.forEach(q=>{
+    let active=false;
+    if(q.type==='online') active = STATE.filterModal.online;
+    else if(q.type==='model') active = STATE.filterModal.models.has(q.val);
+    else if(q.type==='control') active = STATE.filterModal.controls.has(q.val);
+    else if(q.type==='component') active = STATE.filterModal.components.has(q.val);
+    html += '<button class="chip '+(active?'active':'')+'" onclick="quickFilter(\''+q.type+'\',\''+(q.val?esc(q.val):'')+'\')">'+q.label+'</button>';
+  });
+  strip.innerHTML = html;
+}
+function quickFilter(type, val){
+  if(type==='online') STATE.filterModal.online = !STATE.filterModal.online;
+  else {
+    const setKey = type==='model'?'models':type==='control'?'controls':'components';
+    if(STATE.filterModal[setKey].has(val)) STATE.filterModal[setKey].delete(val);
+    else STATE.filterModal[setKey].add(val);
+  }
+  renderFilterStrip();
+  renderConstellation();
+}
+
+function isOnline(profile){
+  if(!profile.fields.last_seen) return false;
+  const dt = new Date(profile.fields.last_seen).getTime();
+  return (Date.now() - dt) < 5*60*1000;
+}
+function profileMatches(profile){
+  // Filter: alle Sets müssen mind. 1 Übereinstimmung haben (AND zwischen Gruppen, OR innerhalb)
+  if(STATE.filterModal.online && !isOnline(profile)) return false;
+  const m = parseList(profile.fields.models);
+  const c = parseList(profile.fields.controls);
+  const k = parseList(profile.fields.components);
+  if(STATE.filterModal.models.size && !Array.from(STATE.filterModal.models).some(x=>m.includes(x))) return false;
+  if(STATE.filterModal.controls.size && !Array.from(STATE.filterModal.controls).some(x=>c.includes(x))) return false;
+  if(STATE.filterModal.components.size && !Array.from(STATE.filterModal.components).some(x=>k.includes(x))) return false;
+  return true;
+}
+
+function renderConstellation(){
+  const cont = document.getElementById('constellation');
+  // Bestehende techs entfernen
+  cont.querySelectorAll('.tech, .constellation-empty').forEach(e=>e.remove());
+
+  // Selber NICHT in Liste
+  const others = STATE.techProfiles.filter(p => p.fields.api_key !== APP_KEYS.user.api_key);
+  if(others.length === 0){
+    const empty = document.createElement('div');
+    empty.className = 'constellation-empty';
+    empty.innerHTML = '<div class="icon">○</div><div>Noch keine Kollegen im Netzwerk.<br>Sobald andere Techniker einsteigen, erscheinen sie hier.</div>';
+    cont.appendChild(empty);
+    document.getElementById('multiSelectBtn').disabled = true;
+    return;
+  }
+  document.getElementById('multiSelectBtn').disabled = false;
+
+  // Filter anwenden
+  others.forEach((p, idx) => {
+    const matches = profileMatches(p);
+    const online = isOnline(p);
+    const el = document.createElement('button');
+    el.className = 'tech';
+    if(online) el.classList.add('online');
+    if(!matches) el.classList.add('hidden-tech');
+    if(!online && matches) el.classList.add('dim');
+    if(STATE.selected.has(p.id)) el.classList.add('selected');
+
+    // Position: deterministisch über api_key Hash → schöne organische Verteilung
+    const pos = hashPos(p.fields.api_key || p.id, idx);
+    el.style.left = pos.x + '%';
+    el.style.top = pos.y + '%';
+
+    // Größe: online + match → groß; nur match → mittel; sonst klein
+    let size = 38;
+    if(online && matches) size = 56;
+    else if(matches) size = 46;
+    else size = 38;
+
+    const avClass = 'av-' + ((idx % 8) + 1);
+    const initials = makeInitials(p.fields.name || p.fields.api_key);
+    const tag = (parseList(p.fields.models)[0] || parseList(p.fields.controls)[0] || '').toUpperCase();
+
+    el.innerHTML = `
+      <div class="tech-avatar ${avClass}" style="width:${size}px;height:${size}px;font-size:${Math.round(size*0.35)}px">
+        ${initials}
+        ${online?'<div class="tech-online-dot"></div>':''}
+        ${STATE.selected.has(p.id)?'<div class="tech-check">✓</div>':''}
+      </div>
+      <div class="tech-name">${esc(p.fields.name || p.fields.api_key)}</div>
+      ${tag?'<div class="tech-tag">'+esc(tag)+'</div>':''}
+    `;
+    el.onclick = ()=> handleTechTap(p);
+    cont.appendChild(el);
+  });
+
+  // Bottom bar update
+  updateBottomBar();
+}
+
+function hashPos(key, idx){
+  // pseudo-zufällige aber deterministische Position
+  let h = 0;
+  for(let i=0;i<key.length;i++) h = ((h<<5)-h+key.charCodeAt(i))|0;
+  const seedX = Math.abs(Math.sin(h*12.9898)*43758.5453);
+  const seedY = Math.abs(Math.sin(h*78.233)*43758.5453);
+  const x = 18 + (seedX % 1) * 64; // 18-82%
+  const y = 15 + (seedY % 1) * 70; // 15-85%
+  return { x, y };
+}
+
+function handleTechTap(profile){
+  if(STATE.multiSelect){
+    if(STATE.selected.has(profile.id)) STATE.selected.delete(profile.id);
+    else STATE.selected.add(profile.id);
+    renderConstellation();
+  } else {
+    // 1:1 Chat starten
+    STATE.selected = new Set([profile.id]);
+    startChatWithSelected();
+  }
+}
+
+function toggleMultiSelect(){
+  if(STATE.multiSelect){
+    // Wenn aktiv → Chat starten oder Abbrechen-Logik
+    if(STATE.selected.size > 0){
+      startChatWithSelected();
+      return;
+    }
+    STATE.multiSelect = false;
+    STATE.selected.clear();
+  } else {
+    STATE.multiSelect = true;
+  }
+  renderConstellation();
+}
+function cancelMultiSelect(){
+  STATE.multiSelect = false; STATE.selected.clear(); renderConstellation();
+}
+
+function updateBottomBar(){
+  const bar = document.getElementById('homeBottomBar');
+  const btn = document.getElementById('multiSelectBtn');
+  if(STATE.multiSelect){
+    bar.innerHTML = '';
+    const cancel = document.createElement('button');
+    cancel.className = 'action-button cancel';
+    cancel.textContent = '×';
+    cancel.onclick = cancelMultiSelect;
+    const start = document.createElement('button');
+    start.className = 'action-button primary';
+    start.id = 'multiSelectBtn';
+    start.disabled = STATE.selected.size === 0;
+    start.innerHTML = '<span class="count">'+STATE.selected.size+'</span> Chat starten →';
+    start.onclick = startChatWithSelected;
+    bar.appendChild(cancel);
+    bar.appendChild(start);
+  } else {
+    bar.innerHTML = '<button class="action-button primary" id="multiSelectBtn" onclick="toggleMultiSelect()">+ Mehrere auswählen</button>';
+  }
+}
+
+// ============================================================
+// FILTER MODAL
+// ============================================================
+function openFilterModal(){
+  renderFilterModalBody();
+  openModal('filterModal');
+}
+function renderFilterModalBody(){
+  const body = document.getElementById('filterModalBody');
+  let html = '';
+  html += renderFilterGroup('Aufzugsmodell', MODELS, STATE.filterModal.models, 'models');
+  html += renderFilterGroup('Steuerung', CONTROLS, STATE.filterModal.controls, 'controls');
+  html += renderFilterGroup('Komponente', COMPONENTS, STATE.filterModal.components, 'components');
+  html += '<div class="filter-group"><div class="filter-group-title">Verfügbarkeit</div><div class="chip-set"><button class="chip '+(STATE.filterModal.online?'selected':'')+'" onclick="toggleFilterOnline()">Jetzt online</button></div></div>';
+  body.innerHTML = html;
+  updateApplyFilterBtn();
+}
+function renderFilterGroup(title, items, set, key){
+  let html = '<div class="filter-group">';
+  html += '<div class="filter-group-title">'+title+(set.size?' <span class="count">'+set.size+'</span>':'')+'</div>';
+  html += '<div class="chip-set">';
+  items.forEach(i => {
+    html += '<button class="chip '+(set.has(i.name)?'selected':'')+'" onclick="toggleFilter(\''+key+'\',\''+esc(i.name)+'\')">'+i.name+'</button>';
+  });
+  html += '</div></div>';
+  return html;
+}
+function toggleFilter(key, val){
+  if(STATE.filterModal[key].has(val)) STATE.filterModal[key].delete(val);
+  else STATE.filterModal[key].add(val);
+  renderFilterModalBody();
+}
+function toggleFilterOnline(){ STATE.filterModal.online = !STATE.filterModal.online; renderFilterModalBody(); }
+function updateApplyFilterBtn(){
+  const others = STATE.techProfiles.filter(p => p.fields.api_key !== APP_KEYS.user.api_key);
+  const matches = others.filter(profileMatches).length;
+  document.getElementById('applyFilterBtn').innerHTML = '<span class="count">'+matches+'</span> Techniker anzeigen';
+}
+function applyFilters(){
+  closeModal('filterModal');
+  renderFilterStrip();
+  renderConstellation();
+}
+
+// ============================================================
+// CHAT START
+// ============================================================
+async function startChatWithSelected(){
+  if(STATE.selected.size === 0) return;
+  const participants = Array.from(STATE.selected).map(id => {
+    return STATE.techProfiles.find(p => p.id === id);
+  }).filter(Boolean);
+  if(participants.length === 0) return;
+
+  // Auto-Title generieren (nimm gemeinsame Modelle/Steuerungen)
+  const title = generateChatTitle(participants);
+  const allKeys = [APP_KEYS.user.api_key, ...participants.map(p => p.fields.api_key)];
+
+  toast('Chat wird erstellt...');
+  try {
+    const chatRecord = await atWrite('Chats', {
+      chat_id: 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+      title: title,
+      participants: JSON.stringify(allKeys),
+      creator_key: APP_KEYS.user.api_key,
+      status: 'aktiv',
+      created: new Date().toISOString(),
+      last_msg: '',
+      last_msg_at: new Date().toISOString(),
+    });
+    // System-Message
+    const names = participants.map(p => p.fields.name || p.fields.api_key).join(', ');
+    await atWrite('Messages', {
+      msg_id: 'm_' + Date.now(),
+      chat_id: chatRecord.fields.chat_id,
+      sender_key: '__system__',
+      sender_name: 'System',
+      msg_type: 'system',
+      content: 'Chat gestartet mit ' + names,
+      created: new Date().toISOString(),
+    });
+    STATE.multiSelect = false;
+    STATE.selected.clear();
+    await loadHomeData();
+    openChat(chatRecord);
+  } catch(e){
+    toast(e.message || 'Fehler beim Chat-Erstellen', 'error');
+  }
+}
+
+function generateChatTitle(participants){
+  // Häufigstes Modell unter Teilnehmern
+  const all = [...participants];
+  if(STATE.myProfile) all.push(STATE.myProfile);
+  const modelCount = {};
+  all.forEach(p => parseList(p.fields.models).forEach(m => modelCount[m] = (modelCount[m]||0)+1));
+  const topModel = Object.keys(modelCount).sort((a,b)=>modelCount[b]-modelCount[a])[0];
+  return (topModel ? topModel.toUpperCase() : 'TECHNIKER') + ' · SUPPORT';
+}
+
+// ============================================================
+// CHAT VIEW
+// ============================================================
+async function openChat(chatRecord){
+  STATE.currentChat = chatRecord;
+  showView('chat');
+  document.getElementById('chatTitle').innerHTML = esc(chatRecord.fields.title || '');
+  document.getElementById('chatMetaText').textContent = (chatRecord.fields.status === 'resolved' ? 'GELÖST · ' : 'LIVE · ') + new Date(chatRecord.fields.created || Date.now()).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+  // Participants
+  const ps = parseList(chatRecord.fields.participants);
+  const partEl = document.getElementById('chatParticipants');
+  let html = '';
+  ps.forEach((k, i) => {
+    if(k === APP_KEYS.user.api_key) return;
+    const prof = STATE.techProfiles.find(p => p.fields.api_key === k);
+    const name = prof ? prof.fields.name : k;
+    const cls = 'av-' + ((i % 8) + 1);
+    html += '<div class="mini-av '+cls+'">'+makeInitials(name)+'</div>';
+  });
+  html += '<div class="mini-av ai">KI</div>';
+  html += '<div class="participants-count">'+(ps.length-1)+' + KI-AGENT</div>';
+  partEl.innerHTML = html;
+
+  await loadMessages();
+  renderMessages();
+  // Periodisches Reload
+  if(window._chatPoll) clearInterval(window._chatPoll);
+  window._chatPoll = setInterval(async ()=>{
+    if(!STATE.currentChat) return;
+    try {
+      const before = STATE.currentMessages.length;
+      await loadMessages();
+      if(STATE.currentMessages.length > before) renderMessages();
+    } catch(e){}
+  }, 10000);
+}
+
+function closeChat(){
+  if(window._chatPoll) clearInterval(window._chatPoll);
+  STATE.currentChat = null;
+  STATE.currentMessages = [];
+  showView('home');
+  loadHomeData().then(renderChatsList);
+}
+
+async function loadMessages(){
+  if(!STATE.currentChat) return;
+  const msgs = await atRead('Messages', "{chat_id}='"+STATE.currentChat.fields.chat_id+"'");
+  STATE.currentMessages = msgs.sort((a,b) => (a.fields.created||'').localeCompare(b.fields.created||''));
+}
+
+function renderMessages(){
+  const body = document.getElementById('chatBody');
+  let html = '';
+  STATE.currentMessages.forEach((m,i) => {
+    const f = m.fields;
+    const isOwn = f.sender_key === APP_KEYS.user.api_key;
+    const isAI = f.msg_type === 'ai';
+    const isSystem = f.msg_type === 'system';
+    if(isSystem){
+      html += '<div class="msg-row system"><div class="msg-bubble system">'+esc(f.content||'')+'</div></div>';
+      return;
+    }
+    const time = f.created ? new Date(f.created).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}) : '';
+    if(isOwn){
+      html += '<div class="msg-row own"><div class="msg-bubble"><div class="msg-text">'+esc(f.content||'')+'</div><div class="msg-time" style="text-align:right">'+time+'</div></div></div>';
+    } else {
+      const idx = (f.sender_key||'').charCodeAt(0) % 8;
+      const cls = isAI ? 'ai' : 'av-'+(idx+1);
+      const initials = isAI ? 'KI' : makeInitials(f.sender_name || f.sender_key);
+      html += '<div class="msg-row"><div class="mini-av '+cls+'">'+initials+'</div><div class="msg-bubble '+(isAI?'ai':'')+'"><div class="msg-author">'+esc(f.sender_name||'?')+'</div><div class="msg-text">'+esc(f.content||'')+'</div><div class="msg-time">'+time+'</div></div></div>';
+    }
+  });
+  body.innerHTML = html;
+  body.scrollTop = body.scrollHeight;
+}
+
+async function sendChatMessage(){
+  const inp = document.getElementById('chatInput');
+  const txt = inp.value.trim();
+  if(!txt || !STATE.currentChat) return;
+  inp.value = '';
+  inp.style.height = 'auto';
+  const sendBtn = document.getElementById('chatSendBtn');
+  sendBtn.disabled = true;
+
+  try {
+    const created = new Date().toISOString();
+    await atWrite('Messages', {
+      msg_id: 'm_' + Date.now(),
+      chat_id: STATE.currentChat.fields.chat_id,
+      sender_key: APP_KEYS.user.api_key,
+      sender_name: APP_KEYS.user.name || APP_KEYS.user.api_key,
+      msg_type: 'text',
+      content: txt,
+      created,
+    });
+    await atUpdate('Chats', STATE.currentChat.id, {
+      last_msg: txt.slice(0, 100),
+      last_msg_at: created,
+    });
+    await loadMessages();
+    renderMessages();
+
+    // KI triggern bei @KI
+    if(/@ki\b/i.test(txt)){
+      await callAI(txt);
+    }
+  } catch(e){
+    toast(e.message || 'Senden fehlgeschlagen', 'error');
+  } finally {
+    sendBtn.disabled = false;
+  }
+}
+
+async function callAI(triggerText){
+  if(!APP_KEYS.anthropicKey){
+    toast('Kein Anthropic-Key konfiguriert', 'error');
+    return;
+  }
+  // Typing-Anzeige
+  const body = document.getElementById('chatBody');
+  const typingEl = document.createElement('div');
+  typingEl.className = 'msg-row';
+  typingEl.id = 'aiTyping';
+  typingEl.innerHTML = '<div class="mini-av ai">KI</div><div class="typing"><span></span><span></span><span></span></div>';
+  body.appendChild(typingEl);
+  body.scrollTop = body.scrollHeight;
+
+  try {
+    // Kontext: Chat-Verlauf + Topic
+    const context = STATE.currentMessages.filter(m => m.fields.msg_type !== 'system').map(m => {
+      const role = m.fields.sender_key === APP_KEYS.user.api_key ? APP_KEYS.user.name : (m.fields.sender_name || 'Techniker');
+      const prefix = m.fields.msg_type === 'ai' ? 'KI' : role;
+      return prefix + ': ' + (m.fields.content || '');
+    }).join('\n');
+
+    const systemPrompt = `Du bist der Liftaro KI-Agent, ein technischer Assistent für Aufzugstechniker. Antworte präzise, kurz, im Techniker-Stil — kein Lehrbuch. Wenn du etwas nicht weißt, sag es ehrlich und frage nach. Strukturiere bei Bedarf mit kurzen Listen oder nummerierten Schritten. Antworte auf Deutsch.
+
+Chat-Titel: ${STATE.currentChat.fields.title || ''}
+Teilnehmer-Profile (Modelle/Steuerungen): siehe Chat-Verlauf.`;
+
+    const userMessage = `Chat-Verlauf:\n${context}\n\nDie KI wurde gerade direkt angesprochen. Antworte auf die letzte Nachricht "${triggerText}" im Kontext des Chats. Halte dich kurz (max. 6 Sätze).`;
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': APP_KEYS.anthropicKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5-20250929',
+        max_tokens: 600,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userMessage }]
+      })
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error?.message || 'AI-Fehler '+res.status);
+    const aiText = data.content && data.content[0] ? data.content[0].text : '(keine Antwort)';
+
+    const created = new Date().toISOString();
+    await atWrite('Messages', {
+      msg_id: 'm_' + Date.now(),
+      chat_id: STATE.currentChat.fields.chat_id,
+      sender_key: '__ai__',
+      sender_name: 'Liftaro KI',
+      msg_type: 'ai',
+      content: aiText,
+      created,
+    });
+    await atUpdate('Chats', STATE.currentChat.id, {
+      last_msg: 'KI: ' + aiText.slice(0, 80),
+      last_msg_at: created,
+    });
+    await loadMessages();
+    document.getElementById('aiTyping')?.remove();
+    renderMessages();
+  } catch(e){
+    document.getElementById('aiTyping')?.remove();
+    toast('KI-Fehler: ' + e.message, 'error');
+  }
+}
+
+async function resolveCurrentChat(){
+  if(!STATE.currentChat) return;
+  if(!confirm('Chat als "gelöst" markieren?')) return;
+  try {
+    await atUpdate('Chats', STATE.currentChat.id, { status: 'resolved' });
+    STATE.currentChat.fields.status = 'resolved';
+    await atWrite('Messages', {
+      msg_id: 'm_' + Date.now(),
+      chat_id: STATE.currentChat.fields.chat_id,
+      sender_key: '__system__',
+      sender_name: 'System',
+      msg_type: 'system',
+      content: 'Chat als gelöst markiert',
+      created: new Date().toISOString(),
+    });
+    toast('Als gelöst markiert', 'success');
+    await loadMessages();
+    document.getElementById('chatMetaText').textContent = 'GELÖST';
+    renderMessages();
+  } catch(e){ toast(e.message, 'error'); }
+}
+
+// ============================================================
+// CHATS LIST (Tab)
+// ============================================================
+function switchTab(tab){
+  STATE.activeTab = tab;
+  document.getElementById('tab-konstellation').classList.toggle('active', tab==='konstellation');
+  document.getElementById('tab-chats').classList.toggle('active', tab==='chats');
+  document.getElementById('tab-content-konstellation').style.display = tab==='konstellation' ? 'flex' : 'none';
+  document.getElementById('tab-content-chats').style.display = tab==='chats' ? 'flex' : 'none';
+  if(tab==='chats') renderChatsList();
+}
+function renderChatsList(){
+  const list = document.getElementById('chatsList');
+  if(STATE.chats.length === 0){
+    list.innerHTML = '<div class="chats-empty"><div class="icon">💬</div><div>Noch keine Chats.<br>Starte einen über die Konstellation.</div></div>';
+    return;
+  }
+  let html = '';
+  STATE.chats.forEach(c => {
+    const f = c.fields;
+    const time = f.last_msg_at ? new Date(f.last_msg_at).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}) : '';
+    const initials = (f.title || '??').slice(0,2).toUpperCase();
+    const badges = f.status === 'resolved' ? '<span class="badge resolved">Gelöst</span>' : '<span class="badge live">Aktiv</span>';
+    html += '<div class="chat-row" onclick="openChatById(\''+c.id+'\')">';
+    html += '<div class="icon-circle">'+esc(initials)+'</div>';
+    html += '<div class="body"><div class="title-row"><div class="title">'+esc(f.title||'Chat')+'</div><div class="time">'+time+'</div></div>';
+    html += '<div class="preview">'+esc(f.last_msg||'—')+'</div>';
+    html += '<div class="badges">'+badges+'</div></div>';
+    html += '</div>';
+  });
+  list.innerHTML = html;
+}
+function openChatById(id){
+  const c = STATE.chats.find(x => x.id === id);
+  if(c) openChat(c);
+}
+
+// ============================================================
+// SETTINGS
+// ============================================================
+function openSettings(){
+  const body = document.getElementById('settingsModalBody');
+  const u = APP_KEYS.user;
+  const p = STATE.myProfile.fields;
+  body.innerHTML = `
+    <div class="settings-row"><div><div class="settings-label">${esc(u.name || u.api_key)}</div><div class="settings-value">${esc(u.role || 'TECHNIKER')}</div></div></div>
+    <div class="settings-row"><div class="settings-label">User-Key</div><div class="settings-value">${esc(u.api_key)}</div></div>
+    <div class="settings-row"><div class="settings-label">Modelle</div><div class="settings-value">${esc(parseList(p.models).join(', ') || '—')}</div></div>
+    <div class="settings-row"><div class="settings-label">Steuerungen</div><div class="settings-value">${esc(parseList(p.controls).join(', ') || '—')}</div></div>
+    <div class="settings-row"><div class="settings-label">Komponenten</div><div class="settings-value">${esc(parseList(p.components).join(', ') || '—')}</div></div>
+    <div class="settings-row"><div class="settings-label">Expertise ändern</div><button class="settings-action" onclick="reopenOnboarding()">Bearbeiten</button></div>
+    <div class="settings-row"><div class="settings-label">Logout</div><button class="settings-action danger" onclick="logout()">Abmelden</button></div>
+    <div class="settings-row"><div class="settings-label">Version</div><div class="settings-value">${APP_VERSION}</div></div>
+  `;
+  openModal('settingsModal');
+}
+function reopenOnboarding(){
+  closeModal('settingsModal');
+  OB_STEP = 0;
+  showView('onboard');
+  onboardRender();
+}
+
+// ============================================================
+// MODAL HELPERS
+// ============================================================
+function openModal(id){ document.getElementById(id).classList.add('active'); }
+function closeModal(id){ document.getElementById(id).classList.remove('active'); }
+
+// ============================================================
+// VIEW SWITCH
+// ============================================================
+function showView(id){
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-'+id).classList.add('active');
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+function makeInitials(name){
+  if(!name) return '??';
+  const parts = name.trim().split(/[\s_-]+/).filter(Boolean);
+  if(parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.slice(0,2).toUpperCase();
+}
+function parseList(v){
+  if(!v) return [];
+  if(Array.isArray(v)) return v;
+  try { const p = JSON.parse(v); return Array.isArray(p) ? p : []; }
+  catch(e){ return v.split(/\s*,\s*/).filter(Boolean); }
+}
+function esc(s){
+  if(s == null) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function toast(msg, type){
+  const t = document.createElement('div');
+  t.className = 'toast' + (type ? ' '+type : '');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(()=>{ t.style.opacity = '0'; t.style.transition = 'opacity .3s'; setTimeout(()=>t.remove(),300); }, 2800);
+}
+
+// Auto-resize textarea
+document.addEventListener('input', e => {
+  if(e.target.classList?.contains('input-field')){
+    e.target.style.height = 'auto';
+    e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+  }
+});
+
+// Enter zum Senden (Shift+Enter = Zeilenumbruch)
+document.addEventListener('keydown', e => {
+  if(e.target.id === 'chatInput' && e.key === 'Enter' && !e.shiftKey){
+    e.preventDefault(); sendChatMessage();
+  }
+  if(e.target.id === 'loginKey' && e.key === 'Enter'){
+    e.preventDefault(); doLogin();
+  }
+});
+
+// ============================================================
+// INIT
+// ============================================================
+document.getElementById('versionTag').textContent = APP_VERSION;
+(async function init(){
+  const ok = await tryAutoLogin();
+  if(ok){ await afterLogin(); }
+  else { showView('login'); }
+})();
+</script>
+</body>
+</html>
