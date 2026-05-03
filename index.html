@@ -826,7 +826,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.8';
+const APP_VERSION = 'v2.8.1';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -2026,6 +2026,8 @@ async function loadHomeDataDeferred(){
     await loadWissen();
     debugLog('loadWissen done ('+STATE.wissen.length+' docs)');
   } catch(e){ debugLog('loadWissen ERR: '+e.message, 'err'); }
+  // Hängengebliebene PDF-Analysen im Hintergrund nachholen (best effort)
+  resumeStuckWissenAnalyses().catch(e => debugLog('resumeStuckWissen ERR: '+e.message, 'err'));
 }
 
 // ============================================================
@@ -4530,7 +4532,11 @@ function renderWissenItem(){
       html += '<div class="wissen-doc-title"><span>'+esc(f.title || 'Dokument')+'</span><span class="wissen-doc-status '+status+'">'+statusLabel+'</span></div>';
       html += '<div class="wissen-doc-meta">Hochgeladen: '+esc(new Date(f.uploaded_at||Date.now()).toLocaleDateString('de-DE'))+' · von '+esc(f.uploaded_by||'?')+(fileUrl?' · <a href="'+esc(fileUrl)+'" target="_blank" style="color:var(--accent)">Öffnen ↗</a>':'')+'</div>';
       if(f.summary){ html += '<div class="wissen-doc-summary">'+esc(f.summary)+'</div>'; }
-      html += '<div style="margin-top:8px;display:flex;gap:5px;justify-content:flex-end"><button class="wissen-doc-del" onclick="deleteWissen(\''+d.id+'\')">Löschen</button></div>';
+      html += '<div style="margin-top:8px;display:flex;gap:5px;justify-content:flex-end">';
+      if((status === 'error' || status === 'processing') && fileUrl){
+        html += '<button class="wissen-doc-del" style="border-color:var(--accent);color:var(--accent)" onclick="retryWissenAnalysis(\''+d.id+'\')">Erneut analysieren</button>';
+      }
+      html += '<button class="wissen-doc-del" onclick="deleteWissen(\''+d.id+'\')">Löschen</button></div>';
       html += '</div>';
     });
   }
@@ -4583,8 +4589,26 @@ async function handleWissenUpload(input){
   } catch(e){ toast(e.message, 'error'); }
 }
 
-async function analyzeWissenPdf(recordId, base64){
+// Re-fetcht PDF von Airtable als base64 — robust auch wenn der Original-Upload schon gelaufen ist.
+async function fetchPdfAsBase64(url){
+  const res = await fetch(url);
+  if(!res.ok) throw new Error('PDF-Fetch '+res.status);
+  const blob = await res.blob();
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function analyzeWissenPdf(recordId, base64OrUrl){
   if(!APP_KEYS.anthropicKey) throw new Error('Kein Anthropic-Key');
+  // Wenn URL übergeben wurde → erst auf base64 ziehen (Anthropic akzeptiert beides, base64 ist hier verlässlicher)
+  let base64 = base64OrUrl;
+  if(typeof base64OrUrl === 'string' && /^https?:\/\//.test(base64OrUrl)){
+    base64 = await fetchPdfAsBase64(base64OrUrl);
+  }
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method:'POST',
     headers:{
@@ -4610,6 +4634,53 @@ async function analyzeWissenPdf(recordId, base64){
   logAiUsage('claude-sonnet-4-5-20250929', data.usage, 'pdf-analyse');
   const summary = data.content?.[0]?.text || '';
   await atUpdate('Wissen', recordId, { status: 'ready', summary });
+}
+
+// Wird auf "Erneut analysieren"-Button geklickt — lädt PDF aus Airtable + analysiert neu.
+async function retryWissenAnalysis(recordId){
+  const rec = STATE.wissen.find(w => w.id === recordId);
+  if(!rec) return;
+  const url = rec.fields.pdf?.[0]?.url;
+  if(!url){ toast('Keine PDF-URL gefunden', 'error'); return; }
+  try {
+    await atUpdate('Wissen', recordId, { status: 'processing', summary: '' });
+    rec.fields.status = 'processing'; rec.fields.summary = '';
+    renderWissenItem();
+    toast('Analyse läuft...');
+    await analyzeWissenPdf(recordId, url);
+    await loadWissen();
+    renderWissenItem();
+    toast('Analyse fertig', 'success');
+  } catch(e){
+    await atUpdate('Wissen', recordId, { status: 'error', summary: 'Analyse-Fehler: ' + (e.message||'unknown') }).catch(()=>{});
+    await loadWissen(); renderWissenItem();
+    toast('Analyse fehlgeschlagen: ' + (e.message || ''), 'error');
+  }
+}
+
+// Beim App-Start: hängengebliebene Records (status='processing' älter als 2 Min, oder 'error') silent retriggern.
+// Nicht parallel, nur die letzten 5 — sonst Token-Burst.
+async function resumeStuckWissenAnalyses(){
+  if(!STATE.wissen?.length) return;
+  const now = Date.now();
+  const stuck = STATE.wissen.filter(w => {
+    const f = w.fields;
+    if(!f.pdf?.[0]?.url) return false;
+    const age = now - new Date(f.uploaded_at || 0).getTime();
+    if(f.status === 'processing' && age > 2*60*1000) return true;
+    if(f.status === 'error' && age < 24*60*60*1000) return true;
+    return false;
+  }).slice(-5);
+  for(const w of stuck){
+    try {
+      await atUpdate('Wissen', w.id, { status: 'processing' });
+      await analyzeWissenPdf(w.id, w.fields.pdf[0].url);
+    } catch(e){
+      await atUpdate('Wissen', w.id, { status: 'error', summary: 'Resume-Fehler: ' + (e.message||'') }).catch(()=>{});
+    }
+  }
+  await loadWissen();
+  if(document.getElementById('wissenItemModal')?.classList.contains('active')) renderWissenItem();
 }
 
 async function deleteWissen(recordId){
