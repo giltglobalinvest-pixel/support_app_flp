@@ -563,8 +563,8 @@ button{cursor:pointer;border:none;background:none}
       <div class="profile-mini-wrap"><div class="profile-mini" id="profileBtn" onclick="openSettings()"></div><div class="medal-badge" id="profileMedalBadge" style="display:none"></div></div>
     </div>
     <div class="tabs">
-      <button class="tab active" id="tab-konstellation" onclick="switchTab('konstellation')">Konstellation</button>
-      <button class="tab" id="tab-chats" onclick="switchTab('chats')">Meine Chats</button>
+      <button class="tab active" id="tab-konstellation" onclick="switchTab('konstellation')" data-i18n="tab_constellation">Konstellation</button>
+      <button class="tab" id="tab-chats" onclick="switchTab('chats')" data-i18n="tab_chats">Meine Chats</button>
     </div>
 
     <!-- KONSTELLATION TAB -->
@@ -574,17 +574,17 @@ button{cursor:pointer;border:none;background:none}
         <div class="constellation-bg"></div>
       </div>
       <div class="bottom-bar" id="homeBottomBar">
-        <button class="action-button" id="aiOnlyBtn" onclick="startAiOnlyChat()" style="flex:0 0 auto;padding:14px 16px" title="Direkt mit der KI chatten">🤖 KI fragen</button>
-        <button class="action-button primary" id="multiSelectBtn" onclick="toggleMultiSelect()">+ Mehrere auswählen</button>
+        <button class="action-button" id="aiOnlyBtn" onclick="startAiOnlyChat()" style="flex:0 0 auto;padding:14px 16px" data-i18n="ki_fragen">🤖 KI fragen</button>
+        <button class="action-button primary" id="multiSelectBtn" onclick="toggleMultiSelect()" data-i18n="multi_select">+ Mehrere auswählen</button>
       </div>
     </div>
 
     <!-- CHATS TAB -->
     <div id="tab-content-chats" class="tab-content">
       <div class="chats-filter">
-        <button class="chats-filter-btn active" id="cf-aktiv" onclick="setChatsFilter('aktiv')">Aktiv</button>
-        <button class="chats-filter-btn" id="cf-resolved" onclick="setChatsFilter('resolved')">Gelöst</button>
-        <button class="chats-filter-btn" id="cf-alle" onclick="setChatsFilter('alle')">Alle</button>
+        <button class="chats-filter-btn active" id="cf-aktiv" onclick="setChatsFilter('aktiv')" data-i18n="chats_filter_active">Aktiv</button>
+        <button class="chats-filter-btn" id="cf-resolved" onclick="setChatsFilter('resolved')" data-i18n="chats_filter_resolved">Gelöst</button>
+        <button class="chats-filter-btn" id="cf-alle" onclick="setChatsFilter('alle')" data-i18n="chats_filter_all">Alle</button>
       </div>
       <div class="chats-list" id="chatsList"></div>
     </div>
@@ -608,14 +608,14 @@ button{cursor:pointer;border:none;background:none}
       <div class="ai-icon">KI</div>
       <div class="ai-banner-text">
         <div class="ai-banner-title">FLP Supporter KI</div>
-        <div class="ai-banner-sub">Mit @KI ansprechen</div>
+        <div class="ai-banner-sub" data-i18n="chat_address_with_ki">Mit @KI ansprechen</div>
       </div>
     </div>
     <div class="chat-body" id="chatBody"></div>
     <div class="chat-input">
       <button class="input-attach" id="chatAttachBtn" onclick="document.getElementById('chatFileInput').click()" title="Datei anhängen">+</button>
       <input type="file" id="chatFileInput" accept="image/*,video/*,application/pdf,.doc,.docx,.txt" style="display:none" onchange="handleChatAttachment(this)">
-      <textarea class="input-field" id="chatInput" placeholder="Nachricht oder @KI fragen..." rows="1"></textarea>
+      <textarea class="input-field" id="chatInput" placeholder="Nachricht oder @KI fragen..." data-i18n-attr-placeholder="chat_input_placeholder" rows="1"></textarea>
       <button class="input-mic" id="chatMicBtn" onclick="startVoiceRecording()" title="Sprachnachricht aufnehmen">🎙</button>
       <button class="input-send" id="chatSendBtn" onclick="sendChatMessage()">→</button>
     </div>
@@ -627,12 +627,12 @@ button{cursor:pointer;border:none;background:none}
 <div class="modal" id="filterModal">
   <div class="modal-sheet">
     <div class="modal-header">
-      <div class="modal-title">Filter</div>
+      <div class="modal-title" data-i18n="filter">Filter</div>
       <button class="modal-close" onclick="closeModal('filterModal')">×</button>
     </div>
     <div class="modal-body" id="filterModalBody"></div>
     <div class="modal-footer">
-      <button class="action-button primary" onclick="applyFilters()" id="applyFilterBtn">Anzeigen</button>
+      <button class="action-button primary" onclick="applyFilters()" id="applyFilterBtn" data-i18n="filter_apply">Anzeigen</button>
     </div>
   </div>
 </div>
@@ -641,7 +641,7 @@ button{cursor:pointer;border:none;background:none}
 <div class="modal" id="settingsModal">
   <div class="modal-sheet">
     <div class="modal-header">
-      <div class="modal-title">Profil & Einstellungen</div>
+      <div class="modal-title" data-i18n="settings_title">Profil & Einstellungen</div>
       <button class="modal-close" onclick="closeModal('settingsModal')">×</button>
     </div>
     <div class="modal-body" id="settingsModalBody"></div>
@@ -652,7 +652,7 @@ button{cursor:pointer;border:none;background:none}
 <div class="modal" id="katalogModal">
   <div class="modal-sheet">
     <div class="modal-header">
-      <div class="modal-title">Katalog verwalten</div>
+      <div class="modal-title" data-i18n="settings_katalog">Katalog verwalten</div>
       <button class="modal-close" onclick="closeModal('katalogModal')">×</button>
     </div>
     <div class="modal-body" id="katalogModalBody"></div>
@@ -663,7 +663,7 @@ button{cursor:pointer;border:none;background:none}
 <div class="modal" id="leaderboardModal">
   <div class="modal-sheet">
     <div class="modal-header">
-      <div class="modal-title">Punkte & Medaillen</div>
+      <div class="modal-title" data-i18n="settings_points">Punkte & Medaillen</div>
       <button class="modal-close" onclick="closeModal('leaderboardModal')">×</button>
     </div>
     <div class="modal-body" id="leaderboardBody"></div>
@@ -674,7 +674,7 @@ button{cursor:pointer;border:none;background:none}
 <div class="modal" id="userMgmtModal">
   <div class="modal-sheet">
     <div class="modal-header">
-      <div class="modal-title">User-Verwaltung</div>
+      <div class="modal-title" data-i18n="settings_user_mgmt">User-Verwaltung</div>
       <button class="modal-close" onclick="closeModal('userMgmtModal')">×</button>
     </div>
     <div class="modal-body" id="userMgmtBody"></div>
@@ -685,7 +685,7 @@ button{cursor:pointer;border:none;background:none}
 <div class="modal" id="dashboardModal">
   <div class="modal-sheet">
     <div class="modal-header">
-      <div class="modal-title">Dashboard</div>
+      <div class="modal-title" data-i18n="settings_dashboard">Dashboard</div>
       <button class="modal-close" onclick="closeModal('dashboardModal')">×</button>
     </div>
     <div class="modal-body" id="dashboardBody"></div>
@@ -696,12 +696,12 @@ button{cursor:pointer;border:none;background:none}
 <div class="modal" id="contactModal">
   <div class="modal-sheet">
     <div class="modal-header">
-      <div class="modal-title">Kontakt & Standort</div>
+      <div class="modal-title" data-i18n="contact_title">Kontakt & Standort</div>
       <button class="modal-close" onclick="closeModal('contactModal')">×</button>
     </div>
     <div class="modal-body" id="contactModalBody"></div>
     <div class="modal-footer">
-      <button class="action-button primary" onclick="saveContact()">Speichern</button>
+      <button class="action-button primary" onclick="saveContact()" data-i18n="contact_save">Speichern</button>
     </div>
   </div>
 </div>
@@ -710,12 +710,12 @@ button{cursor:pointer;border:none;background:none}
 <div class="modal" id="keyRequestModal">
   <div class="modal-sheet">
     <div class="modal-header">
-      <div class="modal-title">Key beantragen</div>
+      <div class="modal-title" data-i18n="keyreq_title">Key beantragen</div>
       <button class="modal-close" onclick="closeModal('keyRequestModal')">×</button>
     </div>
     <div class="modal-body" id="keyRequestBody"></div>
     <div class="modal-footer">
-      <button class="action-button primary" onclick="submitKeyRequest()">Absenden</button>
+      <button class="action-button primary" onclick="submitKeyRequest()" data-i18n="keyreq_submit">Absenden</button>
     </div>
   </div>
 </div>
@@ -724,7 +724,7 @@ button{cursor:pointer;border:none;background:none}
 <div class="modal" id="adminRequestsModal">
   <div class="modal-sheet">
     <div class="modal-header">
-      <div class="modal-title">Key-Anfragen</div>
+      <div class="modal-title" data-i18n="settings_key_requests">Key-Anfragen</div>
       <button class="modal-close" onclick="closeModal('adminRequestsModal')">×</button>
     </div>
     <div class="modal-body" id="adminRequestsBody"></div>
@@ -735,7 +735,7 @@ button{cursor:pointer;border:none;background:none}
 <div class="modal" id="mapModal">
   <div class="modal-sheet" style="height:92vh">
     <div class="modal-header">
-      <div class="modal-title">User-Karte</div>
+      <div class="modal-title" data-i18n="settings_map">User-Karte</div>
       <button class="modal-close" onclick="closeModal('mapModal');destroyMap()">×</button>
     </div>
     <div id="mapContainer" style="flex:1;width:100%;background:#0a1428"></div>
@@ -746,7 +746,7 @@ button{cursor:pointer;border:none;background:none}
 <div class="modal" id="avatarModal">
   <div class="modal-sheet">
     <div class="modal-header">
-      <div class="modal-title">Profilbild ändern</div>
+      <div class="modal-title" data-i18n="avatar_title">Profilbild ändern</div>
       <button class="modal-close" onclick="closeModal('avatarModal')">×</button>
     </div>
     <div class="modal-body" id="avatarModalBody"></div>
@@ -781,22 +781,22 @@ button{cursor:pointer;border:none;background:none}
     <!-- Modus 1: Aufnahme läuft -->
     <div id="voiceRecMode">
       <div class="voice-rec-dot"></div>
-      <div class="voice-status">AUFNAHME LÄUFT</div>
+      <div class="voice-status" data-i18n="voice_recording">AUFNAHME LÄUFT</div>
       <div class="voice-timer" id="voiceTimer">00:00</div>
-      <div class="voice-transcript" id="voiceTranscriptPreview">Sprich jetzt...</div>
+      <div class="voice-transcript" id="voiceTranscriptPreview" data-i18n="voice_speak_now">Sprich jetzt...</div>
       <div class="voice-actions">
-        <button class="voice-cancel" onclick="cancelVoiceRecording()">Verwerfen</button>
-        <button class="voice-send" onclick="stopAndEditVoice()">Stopp →</button>
+        <button class="voice-cancel" onclick="cancelVoiceRecording()" data-i18n="voice_discard">Verwerfen</button>
+        <button class="voice-send" onclick="stopAndEditVoice()" data-i18n="voice_stop">Stopp →</button>
       </div>
     </div>
     <!-- Modus 2: Transkript bearbeiten -->
     <div id="voiceEditMode" style="display:none">
-      <div class="voice-status" style="color:var(--accent)">TRANSKRIPT PRÜFEN & BEARBEITEN</div>
-      <textarea id="voiceTranscriptEdit" class="voice-edit-textarea" rows="6" placeholder="Transkript hier bearbeiten..."></textarea>
+      <div class="voice-status" style="color:var(--accent)" data-i18n="voice_edit_title">TRANSKRIPT PRÜFEN & BEARBEITEN</div>
+      <textarea id="voiceTranscriptEdit" class="voice-edit-textarea" rows="6" placeholder="Transkript hier bearbeiten..." data-i18n-attr-placeholder="voice_edit_placeholder"></textarea>
       <div class="voice-edit-hint" id="voiceEditHint"></div>
       <div class="voice-actions">
-        <button class="voice-cancel" onclick="cancelVoiceRecording()">Verwerfen</button>
-        <button class="voice-send" onclick="confirmVoiceSend()">Senden →</button>
+        <button class="voice-cancel" onclick="cancelVoiceRecording()" data-i18n="voice_discard">Verwerfen</button>
+        <button class="voice-send" onclick="confirmVoiceSend()" data-i18n="voice_send">Senden →</button>
       </div>
     </div>
   </div>
@@ -806,12 +806,12 @@ button{cursor:pointer;border:none;background:none}
 <div class="modal" id="preChatModal">
   <div class="modal-sheet">
     <div class="modal-header">
-      <div class="modal-title">Worum geht's?</div>
+      <div class="modal-title" data-i18n="prechat_title">Worum geht's?</div>
       <button class="modal-close" onclick="cancelPreChat()">×</button>
     </div>
     <div class="modal-body" id="preChatBody"></div>
     <div class="modal-footer">
-      <button class="action-button primary" onclick="confirmPreChat()">Chat starten →</button>
+      <button class="action-button primary" onclick="confirmPreChat()" data-i18n="prechat_send">Chat starten →</button>
     </div>
   </div>
 </div>
@@ -826,7 +826,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.7';
+const APP_VERSION = 'v2.8';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -1740,8 +1740,39 @@ function setLangPref(code){
   if(!I18N[code]) return;
   localStorage.setItem('app_lang', code);
   if(STATE.myProfile){ setMyLanguage(code); }
+  applyI18n();
   // Login-Screen neu rendern wenn dort
   if(document.getElementById('view-login')?.classList.contains('active')){ renderLoginScreen(); }
+  // Falls Home-Tab aktiv: dort hängende Renderings anstoßen
+  try {
+    if(document.getElementById('view-home')?.classList.contains('active')){
+      renderUserBar?.();
+      renderFilterStrip?.();
+      renderConstellation?.();
+      renderChatsList?.();
+    }
+  } catch(e){}
+}
+
+// Übersetzt alle Elemente mit data-i18n* Attributen.
+// data-i18n="key"          → textContent
+// data-i18n-html="key"     → innerHTML (für Texte mit <br>, <strong> etc.)
+// data-i18n-attr-X="key"   → setAttribute(X, …) z.B. data-i18n-attr-placeholder
+function applyI18n(){
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.getAttribute('data-i18n'));
+  });
+  document.querySelectorAll('[data-i18n-html]').forEach(el => {
+    el.innerHTML = t(el.getAttribute('data-i18n-html'));
+  });
+  document.querySelectorAll('*').forEach(el => {
+    for(const attr of el.attributes){
+      if(attr.name.startsWith('data-i18n-attr-')){
+        const target = attr.name.slice('data-i18n-attr-'.length);
+        el.setAttribute(target, t(attr.value));
+      }
+    }
+  });
 }
 
 function renderLoginScreen(){
@@ -2003,12 +2034,14 @@ async function loadHomeDataDeferred(){
 let OB_STEP = 0;
 let OB_DATA = { models: new Set(), controls: new Set(), frequenzumrichter: new Set(), components: new Set() };
 const OB_TOTAL = 5;
-const OB_STEPS = [
-  { key:'models', label:'Welche Modelle kennst du?', hint:'Mehrfachauswahl. Bestimmt, bei welchen Anfragen du gefunden wirst.', cat:'model' },
-  { key:'controls', label:'Welche Steuerungen?', hint:'Mehrfachauswahl möglich.', cat:'control' },
-  { key:'frequenzumrichter', label:'Welche Frequenzumrichter?', hint:'Mehrfachauswahl. Neue FU-Modelle kannst du unten hinzufügen.', cat:'frequenzumrichter' },
-  { key:'components', label:'Spezialisierungen?', hint:'Komponenten in denen du tief drin bist.', cat:'component' },
-];
+function getObSteps(){
+  return [
+    { key:'models', label:t('ob_step_models'), hint:t('ob_step_models_hint'), cat:'model' },
+    { key:'controls', label:t('ob_step_controls'), hint:t('ob_step_controls_hint'), cat:'control' },
+    { key:'frequenzumrichter', label:t('ob_step_fu'), hint:t('ob_step_fu_hint'), cat:'frequenzumrichter' },
+    { key:'components', label:t('ob_step_components'), hint:t('ob_step_components_hint'), cat:'component' },
+  ];
+}
 
 function onboardInit(){
   OB_STEP = 0;
@@ -2030,12 +2063,14 @@ function onboardRender(){
   document.getElementById('obBackBtn').style.display = OB_STEP>0 ? 'flex' : 'none';
   const canAbort = STATE.myProfile?.fields.onboarding_done === true;
   document.getElementById('obAbortBtn').style.display = canAbort ? 'inline-flex' : 'none';
-  document.getElementById('obNextBtn').textContent = OB_STEP===OB_TOTAL-1 ? 'Loslegen →' : 'Weiter →';
+  document.getElementById('obNextBtn').textContent = OB_STEP===OB_TOTAL-1 ? t('ob_finish') : t('ob_next');
+  document.getElementById('obAbortBtn').textContent = t('ob_abort');
   const c = document.getElementById('onboardContent');
-  if(OB_STEP < OB_STEPS.length){
-    const step = OB_STEPS[OB_STEP];
+  const steps = getObSteps();
+  if(OB_STEP < steps.length){
+    const step = steps[OB_STEP];
     const list = CATEGORIES.find(x => x.key === step.cat).getList();
-    const stepLabel = 'Schritt ' + String(OB_STEP+1).padStart(2,'0') + ' / ' + String(OB_TOTAL).padStart(2,'0');
+    const stepLabel = t('ob_step') + ' ' + String(OB_STEP+1).padStart(2,'0') + ' ' + t('ob_step_of') + ' ' + String(OB_TOTAL).padStart(2,'0');
     c.innerHTML = renderOnboardStep(stepLabel, step.label, step.hint, list, OB_DATA[step.key], step.key, step.cat);
   } else {
     c.innerHTML = renderOnboardSummary();
@@ -2055,7 +2090,7 @@ function renderOnboardStep(step, q, hint, list, set, key, cat){
     html += '</button>';
   });
   // Inline-Add: für jede Kategorie kann der User neue Items anlegen
-  html += '<button class="expertise-row" style="border-style:dashed;justify-content:center;color:var(--accent);font-weight:600" onclick="onboardAddItem(\''+cat+'\',\''+key+'\')">+ Eigenes hinzufügen</button>';
+  html += '<button class="expertise-row" style="border-style:dashed;justify-content:center;color:var(--accent);font-weight:600" onclick="onboardAddItem(\''+cat+'\',\''+key+'\')">'+t('ob_add_own')+'</button>';
   html += '</div>';
   return html;
 }
@@ -2075,15 +2110,15 @@ async function onboardAddItem(cat, key){
   } catch(e){ toast(e.message, 'error'); }
 }
 function renderOnboardSummary(){
-  const fmt = (s)=> s.size ? esc(Array.from(s).join(' · ')) : '<span class="summary-empty">— nichts gewählt</span>';
+  const fmt = (s)=> s.size ? esc(Array.from(s).join(' · ')) : '<span class="summary-empty">'+t('ob_nothing')+'</span>';
   return `
-    <div class="onboard-step">Schritt 05 / 05</div>
-    <div class="onboard-question">Deine Expertise</div>
-    <div class="onboard-hint">So tauchst du in der Konstellation auf. Du kannst das jederzeit in den Einstellungen ändern.</div>
-    <div class="summary-block"><div class="summary-label">Modelle</div><div class="summary-value">${fmt(OB_DATA.models)}</div></div>
-    <div class="summary-block"><div class="summary-label">Steuerungen</div><div class="summary-value">${fmt(OB_DATA.controls)}</div></div>
-    <div class="summary-block"><div class="summary-label">Frequenzumrichter</div><div class="summary-value">${fmt(OB_DATA.frequenzumrichter)}</div></div>
-    <div class="summary-block"><div class="summary-label">Komponenten</div><div class="summary-value">${fmt(OB_DATA.components)}</div></div>
+    <div class="onboard-step">${t('ob_step')} 05 ${t('ob_step_of')} 05</div>
+    <div class="onboard-question">${t('ob_summary_title')}</div>
+    <div class="onboard-hint">${t('ob_summary_hint')}</div>
+    <div class="summary-block"><div class="summary-label">${t('ob_models_label')}</div><div class="summary-value">${fmt(OB_DATA.models)}</div></div>
+    <div class="summary-block"><div class="summary-label">${t('ob_controls_label')}</div><div class="summary-value">${fmt(OB_DATA.controls)}</div></div>
+    <div class="summary-block"><div class="summary-label">${t('ob_fu_label')}</div><div class="summary-value">${fmt(OB_DATA.frequenzumrichter)}</div></div>
+    <div class="summary-block"><div class="summary-label">${t('ob_components_label')}</div><div class="summary-value">${fmt(OB_DATA.components)}</div></div>
   `;
 }
 function toggleExpertise(key, val){
@@ -2117,7 +2152,7 @@ async function onboardNext(){
     await afterOnboarding();
   } catch(e){
     toast(e.message,'error');
-    btn.disabled = false; btn.innerHTML = 'Loslegen →';
+    btn.disabled = false; btn.innerHTML = t('ob_finish');
   }
 }
 
@@ -2164,7 +2199,7 @@ function renderUserBar(){
   const tokens = STATE.myProfile ? myTokens() : 0;
   const points = STATE.myProfile ? myPoints() : 0;
   const tier = tierFor(points);
-  const tokensHtml = STATE.myProfile ? '<span class="user-bar-token" onclick="openLeaderboard()" title="Klicken für Punkte/Medaillen">🪙 '+tokens+(tier?' · '+tier.icon:'')+(points?' '+points:'')+'</span>' : '';
+  const tokensHtml = STATE.myProfile ? '<span class="user-bar-token" onclick="openLeaderboard()" title="'+esc(t('settings_points'))+'">🪙 '+tokens+(tier?' · '+tier.icon:'')+(points?' '+points:'')+'</span>' : '';
   const html = `
     <div class="user-bar-left">
       <span class="user-bar-name">${esc(u.name || u.api_key || '—')}</span>
@@ -2182,10 +2217,10 @@ function renderUserBar(){
 function renderFilterStrip(){
   const strip = document.getElementById('filterStrip');
   const filterCount = STATE.filterModal.models.size + STATE.filterModal.controls.size + STATE.filterModal.components.size + (STATE.filterModal.online?1:0);
-  let html = '<button class="chip '+(filterCount?'with-count':'')+'" onclick="openFilterModal()">⚙ Filter'+(filterCount?' · '+filterCount:'')+'</button>';
+  let html = '<button class="chip '+(filterCount?'with-count':'')+'" onclick="openFilterModal()">⚙ '+t('filter')+(filterCount?' · '+filterCount:'')+'</button>';
   // Schnellfilter: ein paar populäre
   const quick = [
-    {label:'Online', type:'online'},
+    {label:t('filter_online'), type:'online'},
     {label:'Schindler 3300', type:'model', val:'Schindler 3300'},
     {label:'KONE Monospace', type:'model', val:'KONE Monospace'},
     {label:'TKE evolution', type:'model', val:'TKE evolution'},
@@ -2259,7 +2294,7 @@ function renderConstellation(){
       ev.stopPropagation();
       startAiOnlyChat();
     };
-    empty.innerHTML = '<div class="icon">○</div><div>Noch keine Kollegen im Netzwerk.<br>Frag direkt die <strong>FLP Supporter KI</strong>.</div><button class="action-button primary" style="margin-top:18px;width:auto;max-width:240px;flex:0 0 auto" onclick="startAiOnlyChat()">🤖 KI-Chat starten</button>';
+    empty.innerHTML = '<div class="icon">○</div><div>'+t('empty_no_colleagues')+'</div><button class="action-button primary" style="margin-top:18px;width:auto;max-width:240px;flex:0 0 auto" onclick="startAiOnlyChat()">'+t('ki_chat_starten')+'</button>';
     cont.appendChild(empty);
     document.getElementById('multiSelectBtn').disabled = true;
     return;
@@ -2279,7 +2314,7 @@ function renderConstellation(){
       ev.stopPropagation();
       startAiOnlyChat();
     };
-    empty.innerHTML = '<div class="icon">○</div><div>Niemand passt zum Filter.<br>Filter ändern oder direkt die <strong>FLP Supporter KI</strong> fragen.</div><button class="action-button primary" style="margin-top:18px;width:auto;max-width:240px;flex:0 0 auto" onclick="startAiOnlyChat()">🤖 KI-Chat starten</button>';
+    empty.innerHTML = '<div class="icon">○</div><div>'+t('empty_no_filter_match')+'</div><button class="action-button primary" style="margin-top:18px;width:auto;max-width:240px;flex:0 0 auto" onclick="startAiOnlyChat()">'+t('ki_chat_starten')+'</button>';
     cont.appendChild(empty);
   } else if(onlineMatching.length === 0){
     const empty = document.createElement('div');
@@ -2302,7 +2337,7 @@ function renderConstellation(){
     empty.style.position = 'absolute';
     empty.style.left = '0';
     empty.style.right = '0';
-    empty.innerHTML = '<div style="font-size:12px;color:var(--ai)">Niemand online. <a onclick="startAiOnlyChat()" style="color:var(--accent);text-decoration:underline;cursor:pointer">KI direkt fragen →</a></div>';
+    empty.innerHTML = '<div style="font-size:12px;color:var(--ai)">'+t('empty_nobody_online')+' <a onclick="startAiOnlyChat()" style="color:var(--accent);text-decoration:underline;cursor:pointer">'+t('ki_chat_inline')+'</a></div>';
     cont.appendChild(empty);
   }
 
@@ -2462,13 +2497,13 @@ function updateBottomBar(){
     start.className = 'action-button primary';
     start.id = 'multiSelectBtn';
     start.disabled = STATE.selected.size === 0;
-    start.innerHTML = '<span class="count">'+STATE.selected.size+'</span> Chat starten →';
+    start.innerHTML = '<span class="count">'+STATE.selected.size+'</span> '+t('chat_starten');
     start.onclick = startChatWithSelected;
     bar.appendChild(cancel);
     bar.appendChild(start);
   } else {
-    bar.innerHTML = '<button class="action-button" id="aiOnlyBtn" onclick="startAiOnlyChat()" style="flex:0 0 auto;padding:14px 16px" title="Direkt mit der KI chatten">🤖 KI fragen</button>'
-                  + '<button class="action-button primary" id="multiSelectBtn" onclick="toggleMultiSelect()">+ Mehrere auswählen</button>';
+    bar.innerHTML = '<button class="action-button" id="aiOnlyBtn" onclick="startAiOnlyChat()" style="flex:0 0 auto;padding:14px 16px">'+t('ki_fragen')+'</button>'
+                  + '<button class="action-button primary" id="multiSelectBtn" onclick="toggleMultiSelect()">'+t('multi_select')+'</button>';
   }
 }
 
@@ -2539,21 +2574,21 @@ function openFilterModal(){
 function renderFilterModalBody(){
   const body = document.getElementById('filterModalBody');
   let html = '';
-  html += renderFilterGroup('Aufzugsmodell', MODELS, STATE.filterModal.models, 'models');
-  html += renderFilterGroup('Steuerung', CONTROLS, STATE.filterModal.controls, 'controls');
-  html += renderFilterGroup('Frequenzumrichter', FREQUENZUMRICHTER, STATE.filterModal.frequenzumrichter, 'frequenzumrichter');
-  html += renderFilterGroup('Komponente', COMPONENTS, STATE.filterModal.components, 'components');
+  html += renderFilterGroup(t('filter_models'), MODELS, STATE.filterModal.models, 'models');
+  html += renderFilterGroup(t('filter_controls'), CONTROLS, STATE.filterModal.controls, 'controls');
+  html += renderFilterGroup(t('filter_fu'), FREQUENZUMRICHTER, STATE.filterModal.frequenzumrichter, 'frequenzumrichter');
+  html += renderFilterGroup(t('filter_components'), COMPONENTS, STATE.filterModal.components, 'components');
   // Medaillen-Filter
-  html += '<div class="filter-group"><div class="filter-group-title">Medaille'+(STATE.filterModal.medals.size?' <span class="count">'+STATE.filterModal.medals.size+'</span>':'')+'</div><div class="chip-set">';
+  html += '<div class="filter-group"><div class="filter-group-title">'+t('filter_medal')+(STATE.filterModal.medals.size?' <span class="count">'+STATE.filterModal.medals.size+'</span>':'')+'</div><div class="chip-set">';
   MEDALS.forEach(m => {
     const sel = STATE.filterModal.medals.has(m.key) ? 'selected' : '';
     html += '<button class="chip '+sel+'" onclick="toggleFilterMedal(\''+m.key+'\')">'+m.icon+' '+m.label+'</button>';
   });
   const selNone = STATE.filterModal.medals.has('none') ? 'selected' : '';
-  html += '<button class="chip '+selNone+'" onclick="toggleFilterMedal(\'none\')">Ohne Medaille</button>';
+  html += '<button class="chip '+selNone+'" onclick="toggleFilterMedal(\'none\')">'+t('filter_no_medal')+'</button>';
   html += '</div></div>';
   // Verfügbarkeit
-  html += '<div class="filter-group"><div class="filter-group-title">Verfügbarkeit</div><div class="chip-set"><button class="chip '+(STATE.filterModal.online?'selected':'')+'" onclick="toggleFilterOnline()">Jetzt online</button></div></div>';
+  html += '<div class="filter-group"><div class="filter-group-title">'+t('filter_availability')+'</div><div class="chip-set"><button class="chip '+(STATE.filterModal.online?'selected':'')+'" onclick="toggleFilterOnline()">'+t('filter_now_online')+'</button></div></div>';
   body.innerHTML = html;
   updateApplyFilterBtn();
 }
@@ -2581,7 +2616,7 @@ function toggleFilterOnline(){ STATE.filterModal.online = !STATE.filterModal.onl
 function updateApplyFilterBtn(){
   const others = STATE.techProfiles.filter(p => p.fields.api_key !== APP_KEYS.user.api_key);
   const matches = others.filter(profileMatches).length;
-  document.getElementById('applyFilterBtn').innerHTML = '<span class="count">'+matches+'</span> Techniker anzeigen';
+  document.getElementById('applyFilterBtn').innerHTML = '<span class="count">'+matches+'</span> '+t('filter_apply');
 }
 function applyFilters(){
   closeModal('filterModal');
@@ -2678,13 +2713,13 @@ function showPreChat(onConfirm){
 
 function renderPreChat(){
   const body = document.getElementById('preChatBody');
-  let html = '<div style="font-size:13px;color:var(--text-dim);margin-bottom:14px;line-height:1.4">Wähle worum es im Chat geht — die KI nutzt dann gezielt das passende Wissen aus den hochgeladenen Dokumenten.</div>';
+  let html = '<div style="font-size:13px;color:var(--text-dim);margin-bottom:14px;line-height:1.4">'+t('prechat_hint')+'</div>';
   CATEGORIES.forEach(cat => {
     const items = cat.getList();
     if(!items.length) return;
     html += '<div class="filter-group"><div class="filter-group-title">'+cat.plural+'</div><div class="chip-set">';
     items.forEach(i => {
-      const sel = PRE_CHAT_TAGS.some(t => t.category === cat.key && t.name === i.name);
+      const sel = PRE_CHAT_TAGS.some(tag => tag.category === cat.key && tag.name === i.name);
       html += '<button class="chip '+(sel?'selected':'')+'" onclick="togglePreChatTag(\''+cat.key+'\',\''+esc(i.name)+'\')">'+esc(i.name)+'</button>';
     });
     html += '</div></div>';
@@ -2728,7 +2763,9 @@ async function openChat(chatRecord){
   updateChatsTabBadge();
   showView('chat');
   document.getElementById('chatTitle').innerHTML = esc(chatRecord.fields.title || '');
-  document.getElementById('chatMetaText').textContent = (chatRecord.fields.status === 'resolved' ? 'GELÖST · ' : 'LIVE · ') + new Date(chatRecord.fields.created || Date.now()).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+  const _lang = getLang();
+  const _locale = _lang === 'en' ? 'en-GB' : 'de-DE';
+  document.getElementById('chatMetaText').textContent = (chatRecord.fields.status === 'resolved' ? t('chat_meta_solved') : t('chat_meta_live')) + ' · ' + new Date(chatRecord.fields.created || Date.now()).toLocaleTimeString(_locale,{hour:'2-digit',minute:'2-digit'});
   // Participants
   const ps = parseList(chatRecord.fields.participants);
   const partEl = document.getElementById('chatParticipants');
@@ -2736,7 +2773,7 @@ async function openChat(chatRecord){
   let html = '';
   if(aiOnly){
     html += '<div class="mini-av ai">KI</div>';
-    html += '<div class="participants-count">DIREKTER KI-CHAT</div>';
+    html += '<div class="participants-count">'+t('chat_direct_ki')+'</div>';
   } else {
     ps.forEach((k, i) => {
       if(k === APP_KEYS.user.api_key) return;
@@ -2751,7 +2788,7 @@ async function openChat(chatRecord){
   partEl.innerHTML = html;
   // Input-Placeholder anpassen
   const inp = document.getElementById('chatInput');
-  if(inp) inp.placeholder = aiOnly ? 'Frag die KI...' : 'Nachricht oder @KI fragen...';
+  if(inp) inp.placeholder = aiOnly ? t('chat_input_placeholder_ai') : t('chat_input_placeholder');
 
   await loadMessages();
   renderMessages();
@@ -2834,7 +2871,7 @@ function renderMessages(){
       attachHtml += '</div>';
     }
     const isVoice = f.msg_type === 'voice';
-    const voicePrefix = isVoice && displayText ? '<div style="font-family:\'JetBrains Mono\',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:'+(isOwn?'rgba(10,20,40,.55)':'var(--text-very-dim)')+';margin-bottom:4px">🎙 Transkript</div>' : '';
+    const voicePrefix = isVoice && displayText ? '<div style="font-family:\'JetBrains Mono\',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:'+(isOwn?'rgba(10,20,40,.55)':'var(--text-very-dim)')+';margin-bottom:4px">'+t('voice_transcript_label')+'</div>' : '';
     const textBlock = displayText ? voicePrefix + '<div class="msg-text" data-msg-text="'+m.id+'">'+esc(displayText)+'</div>' : '';
     if(isOwn){
       html += '<div class="msg-row own"><div class="msg-bubble">'+textBlock+attachHtml+badgeHtml+'<div class="msg-time" style="text-align:right">'+time+'</div></div></div>';
@@ -3005,7 +3042,7 @@ function stopAndEditVoice(){
     editMode.style.display = 'block';
     const ta = document.getElementById('voiceTranscriptEdit');
     ta.value = transcript || '';
-    if(hint) hint.textContent = transcript ? 'Du kannst den Text vor dem Senden anpassen.' : 'Kein Transkript erkannt — bitte tippen.';
+    if(hint) hint.textContent = transcript ? t('voice_edit_hint_ok') : t('voice_edit_hint_empty');
     setTimeout(()=>{ ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }, 50);
   };
   mr.stop();
@@ -3046,7 +3083,7 @@ async function whisperTranscribe(file, lang){
 
 async function uploadVoiceMessage(file, transcript){
   if(!STATE.currentChat) return;
-  if(file.size > 5 * 1024 * 1024){ toast('Sprachnachricht zu groß ('+fmtBytes(file.size)+')', 'error'); return; }
+  if(file.size > 5 * 1024 * 1024){ toast(t('voice_too_big')+' ('+fmtBytes(file.size)+')', 'error'); return; }
   const sendBtn = document.getElementById('chatSendBtn');
   sendBtn.disabled = true;
   // Wenn Web-Speech leer war UND Whisper-Key da → via Whisper transkribieren
@@ -3055,7 +3092,7 @@ async function uploadVoiceMessage(file, transcript){
     const whisperText = await whisperTranscribe(file, myLang());
     if(whisperText) transcript = whisperText;
   }
-  toast('Sprachnachricht wird gesendet...');
+  toast(t('voice_uploading'));
   try {
     const fieldOk = await ensureField('Messages', 'attachments', 'multipleAttachments');
     if(!fieldOk){
@@ -3100,7 +3137,7 @@ async function uploadVoiceMessage(file, transcript){
     });
     await loadMessages();
     renderMessages();
-    toast('Sprachnachricht gesendet', 'success');
+    toast(t('voice_sent'), 'success');
     if(!isAiOnlyChat(STATE.currentChat)) awardTokens(0, POINTS_VOICE, 'Sprachnachricht').catch(()=>{});
     // KI triggern bei KI-Solo-Chat oder @KI im Transkript
     const triggerAi = isAiOnlyChat(STATE.currentChat) || (transcript && /@ki\b/i.test(transcript));
@@ -3414,7 +3451,7 @@ Teilnehmer-Profile (Modelle/Steuerungen): siehe Chat-Verlauf.${knowledgeBlock ||
 
 async function resolveCurrentChat(){
   if(!STATE.currentChat) return;
-  if(!confirm('Chat als "gelöst" markieren? Die KI fasst den Fall zusammen und nimmt das Wissen in die Datenbank auf.')) return;
+  if(!confirm(t('chat_resolve_confirm'))) return;
   try {
     await atUpdate('Chats', STATE.currentChat.id, { status: 'resolved' });
     STATE.currentChat.fields.status = 'resolved';
@@ -3427,10 +3464,10 @@ async function resolveCurrentChat(){
       content: 'Chat als gelöst markiert — KI extrahiert Wissen...',
       created: new Date().toISOString(),
     });
-    toast('Als gelöst markiert · Wissens-Extraktion läuft...', 'success');
+    toast(t('chat_marked_resolved'), 'success');
     awardTokens(0, POINTS_RESOLVED, 'Chat gelöst').catch(()=>{});
     await loadMessages();
-    document.getElementById('chatMetaText').textContent = 'GELÖST';
+    document.getElementById('chatMetaText').textContent = t('chat_meta_solved');
     renderMessages();
     // Im Hintergrund: Chat-Zusammenfassung in Wissensbasis
     extractChatKnowledge(STATE.currentChat).catch(e => console.warn('Chat-Lernen failed:', e));
@@ -3548,18 +3585,20 @@ function renderChatsList(){
     return c.fields.status !== 'resolved';
   });
   if(filtered.length === 0){
-    const msg = filter === 'resolved' ? 'Keine gelösten Chats.' : filter === 'aktiv' ? 'Keine aktiven Chats.<br>Starte einen über die Konstellation.' : 'Noch keine Chats.';
+    const msg = filter === 'resolved' ? t('chats_empty_resolved') : filter === 'aktiv' ? t('chats_empty_active') : t('chats_empty_all');
     list.innerHTML = '<div class="chats-empty"><div class="icon">💬</div><div>'+msg+'</div></div>';
     return;
   }
+  const lang = getLang();
+  const locale = lang === 'en' ? 'en-GB' : 'de-DE';
   let html = '';
   filtered.forEach(c => {
     const f = c.fields;
-    const time = f.last_msg_at ? new Date(f.last_msg_at).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}) : '';
+    const time = f.last_msg_at ? new Date(f.last_msg_at).toLocaleTimeString(locale,{hour:'2-digit',minute:'2-digit'}) : '';
     const initials = (f.title || '??').slice(0,2).toUpperCase();
     const unread = isChatUnread(c);
-    let badges = f.status === 'resolved' ? '<span class="badge resolved">Gelöst</span>' : '<span class="badge live">Aktiv</span>';
-    if(unread) badges = '<span class="badge unread">Neue Antwort</span>' + badges;
+    let badges = f.status === 'resolved' ? '<span class="badge resolved">'+t('chat_status_resolved')+'</span>' : '<span class="badge live">'+t('chat_status_active')+'</span>';
+    if(unread) badges = '<span class="badge unread">'+t('chat_new_reply')+'</span>' + badges;
     html += '<div class="chat-row '+(unread?'unread':'')+'" onclick="openChatById(\''+c.id+'\')">';
     if(unread) html += '<div class="unread-dot"></div>';
     html += '<div class="icon-circle">'+esc(initials)+'</div>';
@@ -3582,27 +3621,28 @@ function openSettings(){
   const body = document.getElementById('settingsModalBody');
   const u = APP_KEYS.user;
   const p = STATE.myProfile.fields;
+  const langBtns = LANGUAGES.map(l => '<button class="settings-action" style="'+(myLang()===l.code?'background:var(--accent);color:var(--on-accent);border-color:var(--accent)':'')+'" onclick="setLangPref(\''+l.code+'\');setTimeout(openSettings,50)">'+l.label+'</button>').join('');
   body.innerHTML = `
     <div class="settings-row"><div><div class="settings-label">${esc(u.name || u.api_key)}</div><div class="settings-value">${esc(u.role || 'TECHNIKER')}</div></div></div>
-    <div class="settings-row"><div class="settings-label">User-Key</div><div class="settings-value">${esc(u.api_key)}</div></div>
-    <div class="settings-row"><div class="settings-label">Modelle</div><div class="settings-value">${esc(parseList(p.models).join(', ') || '—')}</div></div>
-    <div class="settings-row"><div class="settings-label">Steuerungen</div><div class="settings-value">${esc(parseList(p.controls).join(', ') || '—')}</div></div>
-    <div class="settings-row"><div class="settings-label">Frequenzumrichter</div><div class="settings-value">${esc(parseList(p.frequenzumrichter).join(', ') || '—')}</div></div>
-    <div class="settings-row"><div class="settings-label">Komponenten</div><div class="settings-value">${esc(parseList(p.components).join(', ') || '—')}</div></div>
-    <div class="settings-row"><div class="settings-label">Profilbild</div><button class="settings-action" onclick="openAvatarModal()">Ändern</button></div>
-    <div class="settings-row"><div><div class="settings-label">Kontakt & Standort</div><div class="settings-value" style="margin-top:3px">${esc(STATE.myProfile?.fields?.phone || '—')} · ${esc(STATE.myProfile?.fields?.location || 'Standort fehlt')}</div></div><button class="settings-action" onclick="openContactModal()">Bearbeiten</button></div>
-    <div class="settings-row"><div class="settings-label">Sprache</div><div style="display:flex;gap:6px">${LANGUAGES.map(l => '<button class="settings-action" style="'+(myLang()===l.code?'background:var(--accent);color:var(--on-accent);border-color:var(--accent)':'')+'" onclick="setMyLanguage(\''+l.code+'\').then(()=>openSettings())">'+l.label+'</button>').join('')}</div></div>
-    <div class="settings-row"><div class="settings-label">Expertise ändern</div><button class="settings-action" onclick="reopenOnboarding()">Bearbeiten</button></div>
-    <div class="settings-row"><div><div class="settings-label">Wissensbasis</div><div class="settings-value" style="margin-top:3px">PDFs hochladen · KI-Analyse</div></div><button class="settings-action" onclick="closeModal('settingsModal');openWissenModal()">Öffnen</button></div>
-    <div class="settings-row"><div><div class="settings-label">Punkte & Medaillen</div><div class="settings-value" style="margin-top:3px">🪙 ${myTokens()} Tokens · ${myPoints()} Punkte${tierFor(myPoints())?' · '+tierFor(myPoints()).icon:''}</div></div><button class="settings-action" onclick="closeModal('settingsModal');openLeaderboard()">Öffnen</button></div>
-    ${isAdmin() ? '<div class="settings-row"><div><div class="settings-label">Katalog verwalten</div><div class="settings-value" style="margin-top:3px">Modelle · Steuerungen · FU · Komponenten</div></div><button class="settings-action" onclick="closeModal(\'settingsModal\');openKatalogModal()">Öffnen</button></div>' : ''}
-    ${isAdmin() ? '<div class="settings-row"><div><div class="settings-label">User-Verwaltung</div><div class="settings-value" style="margin-top:3px">Liste + Filter</div></div><button class="settings-action" onclick="openUserMgmt()">Öffnen</button></div>' : ''}
-    ${isAdmin() ? '<div class="settings-row"><div><div class="settings-label">Dashboard</div><div class="settings-value" style="margin-top:3px">Statistiken + Performance</div></div><button class="settings-action" onclick="openDashboard()">Öffnen</button></div>' : ''}
-    ${isAdmin() ? '<div class="settings-row"><div><div class="settings-label">Key-Anfragen</div><div class="settings-value" style="margin-top:3px">Neue User freischalten</div></div><button class="settings-action" onclick="openAdminRequests()">Öffnen</button></div>' : ''}
-    ${isAdmin() ? '<div class="settings-row"><div><div class="settings-label">User-Karte</div><div class="settings-value" style="margin-top:3px">Standorte aller User auf Karte</div></div><button class="settings-action" onclick="openMap()">Öffnen</button></div>' : ''}
-    <div class="settings-row"><div><div class="settings-label">Update erzwingen</div><div class="settings-value" style="margin-top:3px">Cache leeren + neu laden</div></div><button class="settings-action" onclick="forceHardReload()">Aktualisieren</button></div>
-    <div class="settings-row"><div class="settings-label">Logout</div><button class="settings-action danger" onclick="logout()">Abmelden</button></div>
-    <div class="settings-row"><div class="settings-label">Version</div><div class="settings-value">${APP_VERSION}</div></div>
+    <div class="settings-row"><div class="settings-label">${t('settings_user_key')}</div><div class="settings-value">${esc(u.api_key)}</div></div>
+    <div class="settings-row"><div class="settings-label">${t('settings_models')}</div><div class="settings-value">${esc(parseList(p.models).join(', ') || '—')}</div></div>
+    <div class="settings-row"><div class="settings-label">${t('settings_controls')}</div><div class="settings-value">${esc(parseList(p.controls).join(', ') || '—')}</div></div>
+    <div class="settings-row"><div class="settings-label">${t('settings_fu')}</div><div class="settings-value">${esc(parseList(p.frequenzumrichter).join(', ') || '—')}</div></div>
+    <div class="settings-row"><div class="settings-label">${t('settings_components')}</div><div class="settings-value">${esc(parseList(p.components).join(', ') || '—')}</div></div>
+    <div class="settings-row"><div class="settings-label">${t('settings_avatar')}</div><button class="settings-action" onclick="openAvatarModal()">${t('settings_change')}</button></div>
+    <div class="settings-row"><div><div class="settings-label">${t('settings_contact')}</div><div class="settings-value" style="margin-top:3px">${esc(STATE.myProfile?.fields?.phone || '—')} · ${esc(STATE.myProfile?.fields?.location || t('standort_missing'))}</div></div><button class="settings-action" onclick="openContactModal()">${t('settings_edit')}</button></div>
+    <div class="settings-row"><div class="settings-label">${t('settings_language')}</div><div style="display:flex;gap:6px">${langBtns}</div></div>
+    <div class="settings-row"><div class="settings-label">${t('settings_expertise')}</div><button class="settings-action" onclick="reopenOnboarding()">${t('settings_edit')}</button></div>
+    <div class="settings-row"><div><div class="settings-label">${t('settings_knowledge')}</div><div class="settings-value" style="margin-top:3px">${t('settings_knowledge_sub')}</div></div><button class="settings-action" onclick="closeModal('settingsModal');openWissenModal()">${t('settings_open')}</button></div>
+    <div class="settings-row"><div><div class="settings-label">${t('settings_points')}</div><div class="settings-value" style="margin-top:3px">🪙 ${myTokens()} · ${myPoints()}${tierFor(myPoints())?' · '+tierFor(myPoints()).icon:''}</div></div><button class="settings-action" onclick="closeModal('settingsModal');openLeaderboard()">${t('settings_open')}</button></div>
+    ${isAdmin() ? '<div class="settings-row"><div><div class="settings-label">'+t('settings_katalog')+'</div></div><button class="settings-action" onclick="closeModal(\'settingsModal\');openKatalogModal()">'+t('settings_open')+'</button></div>' : ''}
+    ${isAdmin() ? '<div class="settings-row"><div><div class="settings-label">'+t('settings_user_mgmt')+'</div></div><button class="settings-action" onclick="openUserMgmt()">'+t('settings_open')+'</button></div>' : ''}
+    ${isAdmin() ? '<div class="settings-row"><div><div class="settings-label">'+t('settings_dashboard')+'</div></div><button class="settings-action" onclick="openDashboard()">'+t('settings_open')+'</button></div>' : ''}
+    ${isAdmin() ? '<div class="settings-row"><div><div class="settings-label">'+t('settings_key_requests')+'</div></div><button class="settings-action" onclick="openAdminRequests()">'+t('settings_open')+'</button></div>' : ''}
+    ${isAdmin() ? '<div class="settings-row"><div><div class="settings-label">'+t('settings_map')+'</div></div><button class="settings-action" onclick="openMap()">'+t('settings_open')+'</button></div>' : ''}
+    <div class="settings-row"><div><div class="settings-label">${t('settings_reload')}</div></div><button class="settings-action" onclick="forceHardReload()">${t('settings_refresh')}</button></div>
+    <div class="settings-row"><div class="settings-label">${t('settings_logout')}</div><button class="settings-action danger" onclick="logout()">${t('settings_logout_btn')}</button></div>
+    <div class="settings-row"><div class="settings-label">${t('settings_version')}</div><div class="settings-value">${APP_VERSION}</div></div>
   `;
   openModal('settingsModal');
 }
@@ -3635,17 +3675,17 @@ function renderAvatarModal(){
   } else {
     html += '<div class="preview '+currentPreset+'">'+esc(initials)+'</div>';
   }
-  html += '<div class="info"><div class="name">'+esc(APP_KEYS.user.name || APP_KEYS.user.api_key)+'</div><div class="hint">'+(photo?'Eigenes Foto':'Avatar-Preset')+'</div></div>';
+  html += '<div class="info"><div class="name">'+esc(APP_KEYS.user.name || APP_KEYS.user.api_key)+'</div><div class="hint">'+(photo?t('avatar_own_photo_label'):t('avatar_preset_label'))+'</div></div>';
   html += '</div>';
   // Foto-Upload
-  html += '<div class="avatar-section-title">Eigenes Foto</div>';
-  html += '<div class="upload-zone" onclick="document.getElementById(\'avatarFileInput\').click()"><div class="icon">📷</div><div>Foto hochladen<br><span style="font-size:11px">(wird auf 256px komprimiert)</span></div></div>';
+  html += '<div class="avatar-section-title">'+t('avatar_own_photo')+'</div>';
+  html += '<div class="upload-zone" onclick="document.getElementById(\'avatarFileInput\').click()"><div class="icon">📷</div><div>'+t('avatar_upload_label')+'<br><span style="font-size:11px">'+t('avatar_upload_hint')+'</span></div></div>';
   html += '<input type="file" id="avatarFileInput" accept="image/*" style="display:none" onchange="handleAvatarUpload(this)">';
   if(photo){
-    html += '<button class="kat-btn del" style="display:block;margin:0 auto 14px;padding:6px 12px" onclick="removeAvatarPhoto()">Foto entfernen</button>';
+    html += '<button class="kat-btn del" style="display:block;margin:0 auto 14px;padding:6px 12px" onclick="removeAvatarPhoto()">'+t('avatar_remove')+'</button>';
   }
   // Preset-Auswahl
-  html += '<div class="avatar-section-title">Avatar-Auswahl</div>';
+  html += '<div class="avatar-section-title">'+t('avatar_choice')+'</div>';
   html += '<div class="avatar-grid">';
   for(let i = 1; i <= 8; i++){
     const cls = 'av-'+i;
@@ -3753,13 +3793,13 @@ function openContactModal(){
 function renderContactModal(){
   const f = STATE.myProfile?.fields || {};
   document.getElementById('contactModalBody').innerHTML = `
-    <div class="input-block"><label class="input-label">Handynummer</label>
+    <div class="input-block"><label class="input-label">${t('contact_phone')}</label>
       <input type="tel" class="text-input" id="contactPhone" placeholder="+49 ..." value="${esc(f.phone||'')}"></div>
-    <div class="input-block"><label class="input-label">Standort (Adresse / Stadt)</label>
+    <div class="input-block"><label class="input-label">${t('contact_location')}</label>
       <input type="text" class="text-input" id="contactLocation" placeholder="z.B. München, Bayreuther Str. 5" value="${esc(f.location||'')}"></div>
-    <div class="input-block"><label class="input-label">Geo-Koordinaten (lat,lng)</label>
-      <div style="display:flex;gap:6px"><input type="text" class="text-input" id="contactGeo" placeholder="48.1351,11.5820" value="${esc(f.geo||'')}" style="flex:1"><button class="settings-action" onclick="useCurrentLocation()" style="white-space:nowrap">📍 Aktuell</button></div>
-      <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-very-dim);margin-top:6px;letter-spacing:.06em">Browser fragt nach GPS-Erlaubnis. Optional, dient für Admin-Karte.</div></div>`;
+    <div class="input-block"><label class="input-label">${t('contact_geo')}</label>
+      <div style="display:flex;gap:6px"><input type="text" class="text-input" id="contactGeo" placeholder="48.1351,11.5820" value="${esc(f.geo||'')}" style="flex:1"><button class="settings-action" onclick="useCurrentLocation()" style="white-space:nowrap">${t('use_current')}</button></div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-very-dim);margin-top:6px;letter-spacing:.06em">${t('contact_geo_hint')}</div></div>`;
 }
 async function useCurrentLocation(){
   if(!navigator.geolocation){ toast('Geolocation nicht unterstützt', 'error'); return; }
@@ -3784,7 +3824,7 @@ async function saveContact(){
     STATE.myProfile.fields.location = location;
     STATE.myProfile.fields.geo = geo;
     closeModal('contactModal');
-    toast('Kontakt gespeichert', 'success');
+    toast(t('contact_saved'), 'success');
   } catch(e){ toast(e.message, 'error'); }
 }
 
@@ -3793,15 +3833,15 @@ async function saveContact(){
 // ============================================================
 function openKeyRequest(){
   document.getElementById('keyRequestBody').innerHTML = `
-    <div class="input-block"><label class="input-label">Vorname *</label><input type="text" class="text-input" id="krVorname" autocomplete="given-name"></div>
-    <div class="input-block"><label class="input-label">Nachname *</label><input type="text" class="text-input" id="krNachname" autocomplete="family-name"></div>
-    <div class="input-block"><label class="input-label">Username *</label><input type="text" class="text-input" id="krUsername" placeholder="So sehen dich andere" autocomplete="username"></div>
-    <div class="input-block"><label class="input-label">Handynummer (optional)</label><input type="tel" class="text-input" id="krPhone" placeholder="+49 ..." autocomplete="tel"></div>
-    <div class="input-block"><label class="input-label">Standort (Adresse / Stadt) *</label><input type="text" class="text-input" id="krLocation" placeholder="z.B. München"></div>
-    <div class="input-block"><label class="input-label">Geo-Koordinaten (optional)</label>
+    <div class="input-block"><label class="input-label">${t('keyreq_vorname')}</label><input type="text" class="text-input" id="krVorname" autocomplete="given-name"></div>
+    <div class="input-block"><label class="input-label">${t('keyreq_nachname')}</label><input type="text" class="text-input" id="krNachname" autocomplete="family-name"></div>
+    <div class="input-block"><label class="input-label">${t('keyreq_username')}</label><input type="text" class="text-input" id="krUsername" placeholder="${esc(t('keyreq_username_hint'))}" autocomplete="username"></div>
+    <div class="input-block"><label class="input-label">${t('keyreq_phone')}</label><input type="tel" class="text-input" id="krPhone" placeholder="+49 ..." autocomplete="tel"></div>
+    <div class="input-block"><label class="input-label">${t('keyreq_location')}</label><input type="text" class="text-input" id="krLocation" placeholder="z.B. München"></div>
+    <div class="input-block"><label class="input-label">${t('keyreq_geo')}</label>
       <div style="display:flex;gap:6px"><input type="text" class="text-input" id="krGeo" placeholder="lat,lng" style="flex:1"><button class="settings-action" onclick="useCurrentLocationKR()" style="white-space:nowrap">📍</button></div></div>
     <div class="error-msg" id="krError"></div>
-    <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;margin-top:14px;line-height:1.5">Nach Absenden prüft ein Admin deine Anfrage und schaltet dich frei. Du erhältst dann einen persönlichen Key.</div>`;
+    <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;margin-top:14px;line-height:1.5">${t('keyreq_info')}</div>`;
   openModal('keyRequestModal');
 }
 function useCurrentLocationKR(){
@@ -3820,7 +3860,7 @@ async function submitKeyRequest(){
   const phone = document.getElementById('krPhone').value.trim();
   const location = document.getElementById('krLocation').value.trim();
   const geo = document.getElementById('krGeo').value.trim();
-  if(!vorname || !nachname || !username || !location){ errEl.textContent = 'Bitte Pflichtfelder ausfüllen'; return; }
+  if(!vorname || !nachname || !username || !location){ errEl.textContent = t('keyreq_required'); return; }
   try {
     // Wir brauchen einen Write-Token — Read-Token reicht für POST nicht. Nutze Read-Key wenn airtableWriteKey nicht da ist.
     // Genauer: KeyRequests-Tabelle muss mit Read-Token beschreibbar sein. Falls nicht → Fehler.
@@ -3835,7 +3875,7 @@ async function submitKeyRequest(){
       throw new Error('Anfrage fehlgeschlagen: '+e.slice(0,150));
     }
     closeModal('keyRequestModal');
-    toast('Anfrage gesendet — du wirst informiert sobald freigeschaltet', 'success');
+    toast(t('keyreq_sent'), 'success');
   } catch(e){ errEl.textContent = e.message; }
 }
 
@@ -4743,6 +4783,7 @@ async function preInitVersionCheck(){
 
 (async function init(){
   debugLog('init() start', 'ok');
+  applyI18n();
   setLoadingLabel('App startet', APP_VERSION);
   // Version-Check SOFORT — bei alter Version reload, init bricht ab
   const reloading = await preInitVersionCheck();
