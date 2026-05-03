@@ -780,7 +780,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.4.5';
+const APP_VERSION = 'v2.5';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -840,7 +840,7 @@ let STATE = {
   currentMessages: [],
   multiSelect: false,
   selected: new Set(),
-  filterModal: { models: new Set(), controls: new Set(), frequenzumrichter: new Set(), components: new Set(), online: false },
+  filterModal: { models: new Set(), controls: new Set(), frequenzumrichter: new Set(), components: new Set(), online: false, medals: new Set() },
   filtersActive: false,
   activeTab: 'konstellation',
   wissen: [],
@@ -1797,6 +1797,12 @@ function profileMatches(profile){
   if(STATE.filterModal.controls.size && !Array.from(STATE.filterModal.controls).some(x=>c.includes(x))) return false;
   if(STATE.filterModal.frequenzumrichter.size && !Array.from(STATE.filterModal.frequenzumrichter).some(x=>fu.includes(x))) return false;
   if(STATE.filterModal.components.size && !Array.from(STATE.filterModal.components).some(x=>k.includes(x))) return false;
+  // Medaillen-Filter: 'none' = ohne Tier; sonst tier.key
+  if(STATE.filterModal.medals.size){
+    const tier = tierFor(profile.fields.points || 0);
+    const tierKey = tier ? tier.key : 'none';
+    if(!STATE.filterModal.medals.has(tierKey)) return false;
+  }
   return true;
 }
 
@@ -1869,6 +1875,10 @@ function renderConstellation(){
     cont.appendChild(empty);
   }
 
+  // Wenn Banner aktiv (matching aber niemand online) → Avatare unterhalb des Banners halten
+  const bannerActive = matching.length > 0 && onlineMatching.length === 0;
+  const minYForAvatars = bannerActive ? 26 : 15;
+
   // Filter anwenden
   others.forEach((p, idx) => {
     const matches = profileMatches(p);
@@ -1880,8 +1890,8 @@ function renderConstellation(){
     if(!online && matches) el.classList.add('dim');
     if(STATE.selected.has(p.id)) el.classList.add('selected');
 
-    // Position: deterministisch + Kollisions-Vermeidung über bisherige Positionen
-    const pos = hashPosNonOverlapping(p.fields.api_key || p.id, idx, others);
+    // Position: deterministisch + Kollisions-Vermeidung
+    const pos = hashPosNonOverlapping(p.fields.api_key || p.id, idx, others, minYForAvatars);
     el.style.left = pos.x + '%';
     el.style.top = pos.y + '%';
     // Drift: jeder Tech bewegt sich langsam in eigene Richtung (deterministisch via Hash)
@@ -1924,32 +1934,34 @@ function renderConstellation(){
   updateBottomBar();
 }
 
-function hashPos(key, idx){
+function hashPos(key, idx, minY){
   // pseudo-zufällige aber deterministische Position
   let h = 0;
   for(let i=0;i<key.length;i++) h = ((h<<5)-h+key.charCodeAt(i))|0;
   const seedX = Math.abs(Math.sin(h*12.9898)*43758.5453);
   const seedY = Math.abs(Math.sin(h*78.233)*43758.5453);
   const x = 18 + (seedX % 1) * 64; // 18-82%
-  const y = 15 + (seedY % 1) * 70; // 15-85%
+  const minYVal = (typeof minY === 'number') ? minY : 15;
+  const yRange = Math.max(20, 85 - minYVal);
+  const y = minYVal + (seedY % 1) * yRange;
   return { x, y };
 }
 
-// Drift-Werte pro Tech (langsame, individuelle Bewegung)
+// Drift-Werte pro Tech (langsame, individuelle Bewegung — größerer Radius)
 function hashDrift(key, idx){
   let h = 0;
   for(let i=0;i<key.length;i++) h = ((h<<5)-h+key.charCodeAt(i))|0;
   h += idx * 13;
-  const dx = Math.round(((Math.sin(h*1.7) + 1) / 2 - 0.5) * 24); // ±12px
-  const dy = Math.round(((Math.sin(h*2.3) + 1) / 2 - 0.5) * 24);
-  const dur = 18 + Math.abs(Math.round((Math.sin(h*3.1) + 1) * 6)); // 18-30s
-  const delay = Math.round((Math.sin(h*4.7) + 1) * 5); // 0-10s
+  const dx = Math.round(((Math.sin(h*1.7) + 1) / 2 - 0.5) * 60); // ±30px
+  const dy = Math.round(((Math.sin(h*2.3) + 1) / 2 - 0.5) * 60);
+  const dur = 14 + Math.abs(Math.round((Math.sin(h*3.1) + 1) * 6)); // 14-26s
+  const delay = Math.round((Math.sin(h*4.7) + 1) * 5);
   return { dx, dy, dur, delay };
 }
 
-// Position mit Kollisions-Vermeidung (probiert bis 8 Mal eine Position die mind. 18% Distanz zu allen anderen hat)
+// Position mit Kollisions-Vermeidung
 const _placedPositions = new WeakMap();
-function hashPosNonOverlapping(key, idx, allOthers){
+function hashPosNonOverlapping(key, idx, allOthers, minY){
   if(_placedPositions.has(allOthers)){
     const cache = _placedPositions.get(allOthers);
     if(cache[key]) return cache[key];
@@ -1958,11 +1970,11 @@ function hashPosNonOverlapping(key, idx, allOthers){
   }
   const cache = _placedPositions.get(allOthers);
   const placed = Object.values(cache);
-  const minDistSq = 18 * 18; // mindestens 18 Prozent-Punkte Distanz
-  let best = hashPos(key, idx);
+  const minDistSq = 18 * 18;
+  let best = hashPos(key, idx, minY);
   let bestMinSq = -1;
   for(let attempt = 0; attempt < 12; attempt++){
-    const variant = hashPos(key + '_' + attempt, idx + attempt * 7);
+    const variant = hashPos(key + '_' + attempt, idx + attempt * 7, minY);
     let nearest = Infinity;
     placed.forEach(p => {
       const ddx = p.x - variant.x; const ddy = p.y - variant.y;
@@ -2100,9 +2112,24 @@ function renderFilterModalBody(){
   html += renderFilterGroup('Steuerung', CONTROLS, STATE.filterModal.controls, 'controls');
   html += renderFilterGroup('Frequenzumrichter', FREQUENZUMRICHTER, STATE.filterModal.frequenzumrichter, 'frequenzumrichter');
   html += renderFilterGroup('Komponente', COMPONENTS, STATE.filterModal.components, 'components');
+  // Medaillen-Filter
+  html += '<div class="filter-group"><div class="filter-group-title">Medaille'+(STATE.filterModal.medals.size?' <span class="count">'+STATE.filterModal.medals.size+'</span>':'')+'</div><div class="chip-set">';
+  MEDALS.forEach(m => {
+    const sel = STATE.filterModal.medals.has(m.key) ? 'selected' : '';
+    html += '<button class="chip '+sel+'" onclick="toggleFilterMedal(\''+m.key+'\')">'+m.icon+' '+m.label+'</button>';
+  });
+  const selNone = STATE.filterModal.medals.has('none') ? 'selected' : '';
+  html += '<button class="chip '+selNone+'" onclick="toggleFilterMedal(\'none\')">Ohne Medaille</button>';
+  html += '</div></div>';
+  // Verfügbarkeit
   html += '<div class="filter-group"><div class="filter-group-title">Verfügbarkeit</div><div class="chip-set"><button class="chip '+(STATE.filterModal.online?'selected':'')+'" onclick="toggleFilterOnline()">Jetzt online</button></div></div>';
   body.innerHTML = html;
   updateApplyFilterBtn();
+}
+function toggleFilterMedal(key){
+  if(STATE.filterModal.medals.has(key)) STATE.filterModal.medals.delete(key);
+  else STATE.filterModal.medals.add(key);
+  renderFilterModalBody();
 }
 function renderFilterGroup(title, items, set, key){
   let html = '<div class="filter-group">';
