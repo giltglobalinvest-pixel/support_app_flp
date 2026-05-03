@@ -775,7 +775,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.4.1';
+const APP_VERSION = 'v2.4.2';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -1390,8 +1390,11 @@ async function loadOrCreateMyProfile(){
   const recs = await atRead('TechnikerProfile', "{api_key}='"+key+"'");
   if(recs.length){
     STATE.myProfile = recs[0];
-    // Heartbeat
-    await atUpdate('TechnikerProfile', recs[0].id, { last_seen: new Date().toISOString() });
+    // Heartbeat + Backfill tokens/points falls noch leer (Migration für Pre-v2.4 Profile)
+    const updates = { last_seen: new Date().toISOString() };
+    if(typeof recs[0].fields.tokens !== 'number'){ updates.tokens = TOKEN_START; STATE.myProfile.fields.tokens = TOKEN_START; }
+    if(typeof recs[0].fields.points !== 'number'){ updates.points = 0; STATE.myProfile.fields.points = 0; }
+    await atUpdate('TechnikerProfile', recs[0].id, updates);
   } else {
     const created = await atWrite('TechnikerProfile', {
       api_key: key,
