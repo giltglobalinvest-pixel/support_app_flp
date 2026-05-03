@@ -366,6 +366,7 @@ button{cursor:pointer;border:none;background:none}
         <div class="constellation-bg"></div>
       </div>
       <div class="bottom-bar" id="homeBottomBar">
+        <button class="action-button" id="aiOnlyBtn" onclick="startAiOnlyChat()" style="flex:0 0 auto;padding:14px 16px" title="Direkt mit der KI chatten">🤖 KI fragen</button>
         <button class="action-button primary" id="multiSelectBtn" onclick="toggleMultiSelect()">+ Mehrere auswählen</button>
       </div>
     </div>
@@ -436,7 +437,7 @@ button{cursor:pointer;border:none;background:none}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v1.0.2';
+const APP_VERSION = 'v1.1';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -872,12 +873,36 @@ function renderConstellation(){
   if(others.length === 0){
     const empty = document.createElement('div');
     empty.className = 'constellation-empty';
-    empty.innerHTML = '<div class="icon">○</div><div>Noch keine Kollegen im Netzwerk.<br>Sobald andere Techniker einsteigen, erscheinen sie hier.</div>';
+    empty.innerHTML = '<div class="icon">○</div><div>Noch keine Kollegen im Netzwerk.<br>Frag direkt die <strong>FLP Supporter KI</strong>.</div><button class="action-button primary" style="margin-top:18px;max-width:240px" onclick="startAiOnlyChat()">🤖 KI-Chat starten</button>';
     cont.appendChild(empty);
     document.getElementById('multiSelectBtn').disabled = true;
     return;
   }
   document.getElementById('multiSelectBtn').disabled = false;
+  // Wenn niemand passt → ebenfalls KI-Hinweis
+  const matching = others.filter(profileMatches);
+  const onlineMatching = matching.filter(isOnline);
+  if(matching.length === 0){
+    const empty = document.createElement('div');
+    empty.className = 'constellation-empty';
+    empty.innerHTML = '<div class="icon">○</div><div>Niemand passt zum Filter.<br>Filter ändern oder direkt die <strong>FLP Supporter KI</strong> fragen.</div><button class="action-button primary" style="margin-top:18px;max-width:240px" onclick="startAiOnlyChat()">🤖 KI-Chat starten</button>';
+    cont.appendChild(empty);
+  } else if(onlineMatching.length === 0){
+    const empty = document.createElement('div');
+    empty.className = 'constellation-empty';
+    empty.style.bottom = 'auto';
+    empty.style.top = '12px';
+    empty.style.padding = '10px 16px';
+    empty.style.background = 'rgba(192,132,252,.10)';
+    empty.style.border = '1px solid rgba(192,132,252,.30)';
+    empty.style.borderRadius = '8px';
+    empty.style.margin = '12px 18px';
+    empty.style.position = 'absolute';
+    empty.style.left = '0';
+    empty.style.right = '0';
+    empty.innerHTML = '<div style="font-size:12px;color:var(--ai)">Niemand online. <a onclick="startAiOnlyChat()" style="color:var(--accent);text-decoration:underline;cursor:pointer">KI direkt fragen →</a></div>';
+    cont.appendChild(empty);
+  }
 
   // Filter anwenden
   others.forEach((p, idx) => {
@@ -981,8 +1006,53 @@ function updateBottomBar(){
     bar.appendChild(cancel);
     bar.appendChild(start);
   } else {
-    bar.innerHTML = '<button class="action-button primary" id="multiSelectBtn" onclick="toggleMultiSelect()">+ Mehrere auswählen</button>';
+    bar.innerHTML = '<button class="action-button" id="aiOnlyBtn" onclick="startAiOnlyChat()" style="flex:0 0 auto;padding:14px 16px" title="Direkt mit der KI chatten">🤖 KI fragen</button>'
+                  + '<button class="action-button primary" id="multiSelectBtn" onclick="toggleMultiSelect()">+ Mehrere auswählen</button>';
   }
+}
+
+async function startAiOnlyChat(){
+  // Falls bereits ein offener KI-Solo-Chat existiert → öffnen statt neu erstellen
+  const myKey = APP_KEYS.user.api_key;
+  const existing = STATE.chats.find(c => {
+    const ps = parseList(c.fields.participants);
+    return ps.length === 1 && ps[0] === myKey && c.fields.status !== 'resolved';
+  });
+  if(existing){ openChat(existing); return; }
+
+  toast('KI-Chat wird gestartet...');
+  try {
+    const created = new Date().toISOString();
+    const chatRecord = await atWrite('Chats', {
+      chat_id: 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+      title: 'KI · SUPPORT',
+      participants: JSON.stringify([myKey]),
+      creator_key: myKey,
+      status: 'aktiv',
+      created,
+      last_msg: '',
+      last_msg_at: created,
+    });
+    await atWrite('Messages', {
+      msg_id: 'm_' + Date.now(),
+      chat_id: chatRecord.fields.chat_id,
+      sender_key: '__system__',
+      sender_name: 'System',
+      msg_type: 'system',
+      content: 'Direkter Chat mit der FLP Supporter KI gestartet',
+      created,
+    });
+    await loadHomeData();
+    openChat(chatRecord);
+  } catch(e){
+    toast(e.message || 'Fehler beim KI-Chat-Erstellen', 'error');
+  }
+}
+
+function isAiOnlyChat(chat){
+  if(!chat) return false;
+  const ps = parseList(chat.fields.participants);
+  return ps.length === 1 && ps[0] === APP_KEYS.user.api_key;
 }
 
 // ============================================================
@@ -1096,17 +1166,26 @@ async function openChat(chatRecord){
   // Participants
   const ps = parseList(chatRecord.fields.participants);
   const partEl = document.getElementById('chatParticipants');
+  const aiOnly = isAiOnlyChat(chatRecord);
   let html = '';
-  ps.forEach((k, i) => {
-    if(k === APP_KEYS.user.api_key) return;
-    const prof = STATE.techProfiles.find(p => p.fields.api_key === k);
-    const name = prof ? prof.fields.name : k;
-    const cls = 'av-' + ((i % 8) + 1);
-    html += '<div class="mini-av '+cls+'">'+makeInitials(name)+'</div>';
-  });
-  html += '<div class="mini-av ai">KI</div>';
-  html += '<div class="participants-count">'+(ps.length-1)+' + KI-AGENT</div>';
+  if(aiOnly){
+    html += '<div class="mini-av ai">KI</div>';
+    html += '<div class="participants-count">DIREKTER KI-CHAT</div>';
+  } else {
+    ps.forEach((k, i) => {
+      if(k === APP_KEYS.user.api_key) return;
+      const prof = STATE.techProfiles.find(p => p.fields.api_key === k);
+      const name = prof ? prof.fields.name : k;
+      const cls = 'av-' + ((i % 8) + 1);
+      html += '<div class="mini-av '+cls+'">'+makeInitials(name)+'</div>';
+    });
+    html += '<div class="mini-av ai">KI</div>';
+    html += '<div class="participants-count">'+(ps.length-1)+' + KI-AGENT</div>';
+  }
   partEl.innerHTML = html;
+  // Input-Placeholder anpassen
+  const inp = document.getElementById('chatInput');
+  if(inp) inp.placeholder = aiOnly ? 'Frag die KI...' : 'Nachricht oder @KI fragen...';
 
   await loadMessages();
   renderMessages();
@@ -1189,8 +1268,8 @@ async function sendChatMessage(){
     await loadMessages();
     renderMessages();
 
-    // KI triggern bei @KI
-    if(/@ki\b/i.test(txt)){
+    // KI triggern bei @KI ODER immer im Solo-KI-Chat
+    if(isAiOnlyChat(STATE.currentChat) || /@ki\b/i.test(txt)){
       await callAI(txt);
     }
   } catch(e){
