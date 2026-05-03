@@ -491,7 +491,7 @@ button{cursor:pointer;border:none;background:none}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v1.3.6';
+const APP_VERSION = 'v1.3.7';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -760,7 +760,8 @@ function applyKatalog(){
 }
 
 function isAdmin(){
-  return (APP_KEYS.user?.role || '').toLowerCase() === 'admin';
+  const r = ((APP_KEYS.user?.role || '') + '').trim().toLowerCase();
+  return r === 'admin' || r.includes('admin');
 }
 
 async function loadOrCreateMyProfile(){
@@ -1554,10 +1555,8 @@ function openSettings(){
 }
 function reopenOnboarding(){
   closeModal('settingsModal');
-  requestAnimationFrame(() => {
-    showView('onboard');
-    onboardInit();
-  });
+  showView('onboard');
+  onboardInit();
 }
 
 // ============================================================
@@ -1732,10 +1731,33 @@ document.addEventListener('keydown', e => {
 });
 
 // ============================================================
+// VERSION-CHECK gegen GitHub raw — bei Mismatch hart neu laden
+// ============================================================
+async function checkForLatestVersion(){
+  try {
+    const res = await fetch('https://raw.githubusercontent.com/giltglobalinvest-pixel/support_app_flp/main/index.html?_=' + Date.now(), { cache: 'no-store' });
+    if(!res.ok) return;
+    const text = await res.text();
+    const match = text.match(/APP_VERSION = '(v[\d.]+)'/);
+    const latest = match && match[1];
+    if(latest && latest !== APP_VERSION){
+      const reloadKey = 'force_reload_' + latest;
+      if(sessionStorage.getItem(reloadKey)) return; // schon einmal versucht
+      sessionStorage.setItem(reloadKey, '1');
+      const url = new URL(location.href);
+      url.searchParams.set('_v', latest);
+      url.searchParams.set('_t', Date.now());
+      location.replace(url.toString());
+    }
+  } catch(e){ /* offline ok */ }
+}
+
+// ============================================================
 // INIT
 // ============================================================
 document.getElementById('versionTag').textContent = APP_VERSION;
 (async function init(){
+  checkForLatestVersion(); // im Hintergrund, blockiert nicht
   const ok = await tryAutoLogin();
   if(ok){ await afterLogin(); }
   else { showView('login'); }
