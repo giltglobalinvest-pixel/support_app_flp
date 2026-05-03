@@ -38,7 +38,7 @@ button{cursor:pointer;border:none;background:none}
 
 /* ===== HEADER ===== */
 .app-header{
-  padding:calc(max(8px,env(safe-area-inset-top)) + 14px) 22px 14px;display:flex;justify-content:space-between;
+  padding:max(14px,env(safe-area-inset-top)) 22px 14px;display:flex;justify-content:space-between;
   align-items:center;border-bottom:1px solid var(--rule);flex-shrink:0;gap:12px;
 }
 .app-logo{font-family:'Archivo',sans-serif;font-weight:900;font-stretch:75%;font-size:16px;letter-spacing:.02em;display:flex;align-items:center;gap:8px}
@@ -207,7 +207,7 @@ button{cursor:pointer;border:none;background:none}
 .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
 
 /* ===== CHAT VIEW ===== */
-.chat-header{padding:calc(max(8px,env(safe-area-inset-top)) + 14px) 18px 14px;border-bottom:1px solid var(--rule);flex-shrink:0;display:flex;gap:10px;align-items:flex-start}
+.chat-header{padding:max(14px,env(safe-area-inset-top)) 18px 14px;border-bottom:1px solid var(--rule);flex-shrink:0;display:flex;gap:10px;align-items:flex-start}
 .back-btn{width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--text);flex-shrink:0;margin-top:2px}
 .chat-header-content{flex:1;min-width:0}
 .chat-meta{font-family:'JetBrains Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:var(--text-dim);display:flex;align-items:center;gap:8px;margin-bottom:5px}
@@ -470,7 +470,7 @@ button{cursor:pointer;border:none;background:none}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v1.2.1';
+const APP_VERSION = 'v1.2.2';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
