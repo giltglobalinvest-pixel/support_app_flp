@@ -692,7 +692,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.0.4';
+const APP_VERSION = 'v2.1';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -2509,11 +2509,39 @@ async function handleChatAttachment(input){
     await loadMessages();
     renderMessages();
     toast('Hochgeladen', 'success');
+    // Falls PDF: parallel zur Wissensbasis hinzufügen (asynchron im Hintergrund)
+    if(cleanType === 'application/pdf' && APP_KEYS.anthropicKey){
+      indexChatPdfToWissen(file.name, base64).catch(e => console.warn('Auto-Wissen failed:', e));
+    }
   } catch(e){
     toast(e.message || 'Anhang fehlgeschlagen', 'error');
   } finally {
     sendBtn.disabled = false; attachBtn.disabled = false;
   }
+}
+
+async function indexChatPdfToWissen(filename, base64){
+  if(!STATE.currentChat) return;
+  // Kategorie + Item-Name aus Chat-Context-Tags ableiten
+  let category = 'component', itemName = STATE.currentChat.fields.title || 'Chat-PDF';
+  try {
+    const tags = JSON.parse(STATE.currentChat.fields.context_tags || '[]');
+    if(tags.length){ category = tags[0].category; itemName = tags[0].name; }
+  } catch(e){}
+  toast('PDF wird zur Wissensbasis indiziert...', 'success');
+  try {
+    const created = new Date().toISOString();
+    const rec = await atWrite('Wissen', {
+      title: filename + ' (aus Chat: ' + (STATE.currentChat.fields.title || '') + ')',
+      category, item_name: itemName,
+      uploaded_by: APP_KEYS.user.name || APP_KEYS.user.api_key,
+      uploaded_at: created,
+      status: 'processing',
+    });
+    await analyzeWissenPdf(rec.id, base64);
+    await loadWissen();
+    toast('PDF in Wissensbasis aufgenommen ('+itemName+')', 'success');
+  } catch(e){ toast('Wissen-Indexierung: '+e.message, 'error'); }
 }
 
 function showAttachmentPreview(url){
@@ -2667,7 +2695,7 @@ Teilnehmer-Profile (Modelle/Steuerungen): siehe Chat-Verlauf.${knowledgeBlock ||
 
 async function resolveCurrentChat(){
   if(!STATE.currentChat) return;
-  if(!confirm('Chat als "gelöst" markieren?')) return;
+  if(!confirm('Chat als "gelöst" markieren? Die KI fasst den Fall zusammen und nimmt das Wissen in die Datenbank auf.')) return;
   try {
     await atUpdate('Chats', STATE.currentChat.id, { status: 'resolved' });
     STATE.currentChat.fields.status = 'resolved';
@@ -2677,14 +2705,62 @@ async function resolveCurrentChat(){
       sender_key: '__system__',
       sender_name: 'System',
       msg_type: 'system',
-      content: 'Chat als gelöst markiert',
+      content: 'Chat als gelöst markiert — KI extrahiert Wissen...',
       created: new Date().toISOString(),
     });
-    toast('Als gelöst markiert', 'success');
+    toast('Als gelöst markiert · Wissens-Extraktion läuft...', 'success');
     await loadMessages();
     document.getElementById('chatMetaText').textContent = 'GELÖST';
     renderMessages();
+    // Im Hintergrund: Chat-Zusammenfassung in Wissensbasis
+    extractChatKnowledge(STATE.currentChat).catch(e => console.warn('Chat-Lernen failed:', e));
   } catch(e){ toast(e.message, 'error'); }
+}
+
+async function extractChatKnowledge(chat){
+  if(!APP_KEYS.anthropicKey) return;
+  try {
+    const msgs = STATE.currentMessages.filter(m => m.fields.msg_type !== 'system');
+    if(msgs.length < 2) return; // zu wenig Inhalt zum Lernen
+    const transcript = msgs.map(m => {
+      const role = m.fields.sender_key === '__ai__' ? 'KI' : (m.fields.sender_name || 'Techniker');
+      return role + ': ' + (m.fields.content || '');
+    }).join('\n');
+    const tags = (() => { try { return JSON.parse(chat.fields.context_tags || '[]'); } catch(e){ return []; } })();
+    const tagInfo = tags.length ? tags.map(t => t.name).join(', ') : 'keine Tags';
+    const sysPrompt = `Du extrahierst aus einem gelösten Service-Chat die Lehre für die Wissensbasis. Antworte als reine, klar strukturierte Zusammenfassung in Deutsch:
+
+PROBLEM: <kurz, ein Satz>
+SYMPTOM: <Was hat der Techniker beobachtet?>
+URSACHE: <Falls bekannt>
+LÖSUNG: <Was hat geholfen? Schritte als Liste wenn sinnvoll>
+RELEVANTE FEHLERCODES/TEILE: <falls genannt>
+ANWENDBAR AUF: <Modelle/Steuerungen/Komponenten>
+
+Wenn ein Punkt nicht aus dem Chat hervorgeht, schreibe "—". Maximal 400 Wörter.`;
+    const userMsg = `Chat-Titel: ${chat.fields.title || ''}\nKontext-Tags: ${tagInfo}\n\nVerlauf:\n${transcript}`;
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'x-api-key': APP_KEYS.anthropicKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true','Content-Type':'application/json'},
+      body: JSON.stringify({ model:'claude-sonnet-4-5-20250929', max_tokens: 1000, system: sysPrompt, messages:[{ role:'user', content: userMsg }] })
+    });
+    if(!res.ok) throw new Error('AI '+res.status);
+    const data = await res.json();
+    const summary = data.content?.[0]?.text || '';
+    if(!summary) return;
+    let category = 'component', itemName = chat.fields.title || 'Gelöster Fall';
+    if(tags.length){ category = tags[0].category; itemName = tags[0].name; }
+    await atWrite('Wissen', {
+      title: 'Gelöster Fall: ' + (chat.fields.title || 'Chat'),
+      category, item_name: itemName,
+      summary,
+      uploaded_by: APP_KEYS.user.name || APP_KEYS.user.api_key,
+      uploaded_at: new Date().toISOString(),
+      status: 'ready',
+    });
+    await loadWissen();
+    toast('Wissen aus Chat extrahiert ('+itemName+')', 'success');
+  } catch(e){ console.warn('extractChatKnowledge:', e); }
 }
 
 // ============================================================
