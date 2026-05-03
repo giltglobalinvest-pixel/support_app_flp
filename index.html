@@ -315,6 +315,9 @@ button{cursor:pointer;border:none;background:none}
 .voice-cancel{flex:1;padding:13px;background:var(--surface);border:1px solid var(--rule-strong);border-radius:10px;color:var(--text-dim);font-weight:600;font-size:14px;font-family:inherit}
 .voice-send{flex:2;padding:13px;background:var(--accent);border:none;border-radius:10px;color:var(--on-accent);font-weight:700;font-size:14px;font-family:inherit;box-shadow:0 8px 20px -8px var(--accent)}
 .voice-cancel:active,.voice-send:active{transform:scale(.985)}
+.voice-edit-textarea{width:100%;min-height:120px;max-height:240px;padding:12px 14px;background:var(--surface);border:1px solid var(--rule-strong);border-radius:8px;font-size:14px;line-height:1.45;color:var(--text);font-family:inherit;resize:vertical;outline:none}
+.voice-edit-textarea:focus{border-color:var(--accent)}
+.voice-edit-hint{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--text-very-dim);text-transform:uppercase;letter-spacing:.08em;text-align:center;margin-top:-4px}
 
 .msg-attachment{margin-top:8px;display:flex;flex-direction:column;gap:6px}
 .msg-attachment img{max-width:100%;max-height:240px;border-radius:8px;cursor:pointer;display:block;background:var(--surface)}
@@ -600,13 +603,26 @@ button{cursor:pointer;border:none;background:none}
 <!-- VOICE RECORDING OVERLAY -->
 <div class="voice-overlay" id="voiceOverlay">
   <div class="voice-card">
-    <div class="voice-rec-dot"></div>
-    <div class="voice-status">AUFNAHME LÄUFT</div>
-    <div class="voice-timer" id="voiceTimer">00:00</div>
-    <div class="voice-transcript" id="voiceTranscriptPreview">Sprich jetzt...</div>
-    <div class="voice-actions">
-      <button class="voice-cancel" onclick="cancelVoiceRecording()">Verwerfen</button>
-      <button class="voice-send" onclick="stopVoiceRecording(true)">Senden →</button>
+    <!-- Modus 1: Aufnahme läuft -->
+    <div id="voiceRecMode">
+      <div class="voice-rec-dot"></div>
+      <div class="voice-status">AUFNAHME LÄUFT</div>
+      <div class="voice-timer" id="voiceTimer">00:00</div>
+      <div class="voice-transcript" id="voiceTranscriptPreview">Sprich jetzt...</div>
+      <div class="voice-actions">
+        <button class="voice-cancel" onclick="cancelVoiceRecording()">Verwerfen</button>
+        <button class="voice-send" onclick="stopAndEditVoice()">Stopp →</button>
+      </div>
+    </div>
+    <!-- Modus 2: Transkript bearbeiten -->
+    <div id="voiceEditMode" style="display:none">
+      <div class="voice-status" style="color:var(--accent)">TRANSKRIPT PRÜFEN & BEARBEITEN</div>
+      <textarea id="voiceTranscriptEdit" class="voice-edit-textarea" rows="6" placeholder="Transkript hier bearbeiten..."></textarea>
+      <div class="voice-edit-hint" id="voiceEditHint"></div>
+      <div class="voice-actions">
+        <button class="voice-cancel" onclick="cancelVoiceRecording()">Verwerfen</button>
+        <button class="voice-send" onclick="confirmVoiceSend()">Senden →</button>
+      </div>
     </div>
   </div>
 </div>
@@ -679,7 +695,7 @@ function toggleDebug(){
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v1.8.1';
+const APP_VERSION = 'v1.9';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -2010,12 +2026,22 @@ function cancelVoiceRecording(){
   }
   _cleanupVoice();
   VOICE_REC.transcript = '';
+  VOICE_PENDING = null;
+  // Reset Edit-View
+  const recMode = document.getElementById('voiceRecMode');
+  const editMode = document.getElementById('voiceEditMode');
+  if(recMode) recMode.style.display = '';
+  if(editMode) editMode.style.display = 'none';
+  const ta = document.getElementById('voiceTranscriptEdit');
+  if(ta) ta.value = '';
 }
 
-function stopVoiceRecording(send){
+// Pending-State zwischen Aufnahme-Stopp und finalem Senden
+let VOICE_PENDING = null; // { file, transcript }
+
+function stopAndEditVoice(){
   const mr = VOICE_REC.mediaRecorder;
   if(!mr || mr.state !== 'recording'){ _cleanupVoice(); return; }
-  // Vor Stopp: was im Preview steht (final + interim) als Quelle nehmen
   const previewEl = document.getElementById('voiceTranscriptPreview');
   const previewText = previewEl ? (previewEl.textContent || '').trim() : '';
   mr.onstop = async () => {
@@ -2023,17 +2049,49 @@ function stopVoiceRecording(send){
     const ext = mimeType.includes('mp4') ? 'm4a' : 'webm';
     const blob = new Blob(VOICE_REC.chunks, { type: mimeType });
     const file = new File([blob], 'voice_' + Date.now() + '.' + ext, { type: mimeType });
-    // Quelle 1: VOICE_REC.transcript (nur final-Chunks); Quelle 2: Preview-DOM (final + interim)
     let transcript = (VOICE_REC.transcript || '').trim();
     if((!transcript || transcript.length < previewText.length) && previewText && previewText !== 'Sprich jetzt...'){
       transcript = previewText;
     }
-    _cleanupVoice();
+    // Speech + Stream cleanup, Overlay BLEIBT offen für Edit
+    if(VOICE_REC.timerInt) clearInterval(VOICE_REC.timerInt);
+    VOICE_REC.timerInt = null;
+    if(VOICE_REC.speech){ try { VOICE_REC.speech.stop(); } catch(e){} VOICE_REC.speech = null; }
+    if(VOICE_REC.stream){ VOICE_REC.stream.getTracks().forEach(t => t.stop()); VOICE_REC.stream = null; }
+    document.getElementById('chatMicBtn')?.classList.remove('recording');
     VOICE_REC.transcript = '';
-    if(!send) return;
-    await uploadVoiceMessage(file, transcript);
+    // Whisper-Fallback wenn leer + Key vorhanden
+    const hint = document.getElementById('voiceEditHint');
+    if((!transcript || transcript.length < 2) && APP_KEYS.openaiKey){
+      if(hint) hint.textContent = 'Transkribiere via Whisper...';
+      const whisperText = await whisperTranscribe(file, myLang());
+      if(whisperText) transcript = whisperText;
+    }
+    VOICE_PENDING = { file, transcript };
+    // Edit-Modus zeigen
+    document.getElementById('voiceRecMode').style.display = 'none';
+    const editMode = document.getElementById('voiceEditMode');
+    editMode.style.display = 'block';
+    const ta = document.getElementById('voiceTranscriptEdit');
+    ta.value = transcript || '';
+    if(hint) hint.textContent = transcript ? 'Du kannst den Text vor dem Senden anpassen.' : 'Kein Transkript erkannt — bitte tippen.';
+    setTimeout(()=>{ ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }, 50);
   };
   mr.stop();
+}
+
+async function confirmVoiceSend(){
+  if(!VOICE_PENDING) return;
+  const ta = document.getElementById('voiceTranscriptEdit');
+  const finalTranscript = (ta.value || '').trim();
+  const file = VOICE_PENDING.file;
+  VOICE_PENDING = null;
+  _cleanupVoice();
+  // Reset Edit-View für nächste Aufnahme
+  document.getElementById('voiceRecMode').style.display = '';
+  document.getElementById('voiceEditMode').style.display = 'none';
+  ta.value = '';
+  await uploadVoiceMessage(file, finalTranscript);
 }
 
 // OpenAI Whisper — Server-Side-Transkription für Audio-Dateien
@@ -2322,14 +2380,26 @@ async function callAI(triggerText){
       if(tags.length){
         const relevant = STATE.wissen.filter(w => tags.some(t => t.category === w.fields.category && t.name === w.fields.item_name) && w.fields.summary);
         if(relevant.length){
-          knowledgeBlock = '\n\nWISSENSQUELLEN (aus hochgeladenen Service-Dokumenten):\n' + relevant.map(w => '--- '+(w.fields.item_name||'?')+' / '+(w.fields.title||'Doku')+' ---\n'+w.fields.summary).join('\n\n') + '\n\nNutze diese Quellen primär. Zitiere bei Bedarf den Dokumentnamen.';
+          knowledgeBlock = '\n\nWISSENSQUELLEN (aus hochgeladenen Service-Dokumenten):\n' + relevant.map(w => '--- '+(w.fields.item_name||'?')+' / '+(w.fields.title||'Doku')+' ---\n'+w.fields.summary).join('\n\n');
         }
       }
     } catch(e){}
-    const systemPrompt = `Du bist die FLP Supporter KI, ein technischer Assistent für Aufzugstechniker. Antworte präzise, kurz, im Techniker-Stil — kein Lehrbuch. Wenn du etwas nicht weißt, sag es ehrlich und frage nach. Strukturiere bei Bedarf mit kurzen Listen oder nummerierten Schritten. Antworte auf ${replyLang}.
+    const systemPrompt = `Du bist die FLP Supporter KI, ein technischer Assistent für Aufzugstechniker bei FLP.
+
+ABSOLUT VERBINDLICHE REGELN:
+1. Du nutzt AUSSCHLIESSLICH:
+   (a) den Chat-Verlauf dieses Gesprächs
+   (b) die unten angefügten WISSENSQUELLEN aus den hochgeladenen Service-Dokumenten
+   (c) Wissen aus früheren gelösten Fällen, falls verfügbar
+2. KEIN allgemeines Internet-/Trainings-Wissen verwenden. Erfinde NIEMALS Fehlercodes, Spezifikationen, Schaltpläne, Werte oder Vorgehensweisen.
+3. Wenn die benötigte Information NICHT in den oben genannten Quellen vorhanden ist, antworte ehrlich: "Dazu habe ich keine Information in den Service-Dokumenten oder bisherigen Chats. Bitte lade eine passende Doku hoch oder frage einen Kollegen."
+4. Du darfst nachfragen wenn der Kontext nicht reicht (z.B. genaue Steuerungs-Version, Fehlercode, Symptom).
+5. Bei Quellen-Bezug: Nenne den Dokumentnamen explizit (z.B. "Laut Service-Handbuch Schindler 3300, Fehler F-117...").
+
+STIL: Antworten kurz, präzise, im Techniker-Stil — kein Lehrbuch. Bei Diagnose-Schritten nummerierte Liste. Antworte auf ${replyLang}.
 
 Chat-Titel: ${STATE.currentChat.fields.title || ''}
-Teilnehmer-Profile (Modelle/Steuerungen): siehe Chat-Verlauf.${knowledgeBlock}`;
+Teilnehmer-Profile (Modelle/Steuerungen): siehe Chat-Verlauf.${knowledgeBlock || '\n\n(Keine spezifischen Service-Dokumente für diesen Chat-Kontext geladen — beantworte nur was im Chat steht oder frage nach.)'}`;
 
     const userMessage = `Chat-Verlauf:\n${context}\n\nDie KI wurde gerade direkt angesprochen. Antworte auf die letzte Nachricht "${triggerText}" im Kontext des Chats. Halte dich kurz (max. 6 Sätze).`;
 
