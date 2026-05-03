@@ -13,6 +13,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&family=Manrope:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
 <style>
 :root{
   --bg:#0a1428;--surface:rgba(255,255,255,.05);--surface-strong:rgba(255,255,255,.10);
@@ -539,6 +541,7 @@ button{cursor:pointer;border:none;background:none}
         <div class="error-msg" id="loginError"></div>
       </div>
       <button class="action-button primary" id="loginBtn" onclick="doLogin()">Einloggen →</button>
+      <div style="text-align:center;margin-top:18px"><button onclick="openKeyRequest()" style="background:transparent;border:none;color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.12em;cursor:pointer;padding:8px 12px">Noch keinen Key? · Key beantragen →</button></div>
     </div>
   </div>
 
@@ -696,6 +699,56 @@ button{cursor:pointer;border:none;background:none}
   </div>
 </div>
 
+<!-- KONTAKT & STANDORT MODAL -->
+<div class="modal" id="contactModal">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <div class="modal-title">Kontakt & Standort</div>
+      <button class="modal-close" onclick="closeModal('contactModal')">×</button>
+    </div>
+    <div class="modal-body" id="contactModalBody"></div>
+    <div class="modal-footer">
+      <button class="action-button primary" onclick="saveContact()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- KEY BEANTRAGEN MODAL -->
+<div class="modal" id="keyRequestModal">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <div class="modal-title">Key beantragen</div>
+      <button class="modal-close" onclick="closeModal('keyRequestModal')">×</button>
+    </div>
+    <div class="modal-body" id="keyRequestBody"></div>
+    <div class="modal-footer">
+      <button class="action-button primary" onclick="submitKeyRequest()">Absenden</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN: KEY REQUESTS MODAL -->
+<div class="modal" id="adminRequestsModal">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <div class="modal-title">Key-Anfragen</div>
+      <button class="modal-close" onclick="closeModal('adminRequestsModal')">×</button>
+    </div>
+    <div class="modal-body" id="adminRequestsBody"></div>
+  </div>
+</div>
+
+<!-- ADMIN: KARTE MODAL -->
+<div class="modal" id="mapModal">
+  <div class="modal-sheet" style="height:92vh">
+    <div class="modal-header">
+      <div class="modal-title">User-Karte</div>
+      <button class="modal-close" onclick="closeModal('mapModal');destroyMap()">×</button>
+    </div>
+    <div id="mapContainer" style="flex:1;width:100%;background:#0a1428"></div>
+  </div>
+</div>
+
 <!-- AVATAR-AUSWAHL MODAL -->
 <div class="modal" id="avatarModal">
   <div class="modal-sheet">
@@ -780,7 +833,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.5';
+const APP_VERSION = 'v2.6';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -1086,6 +1139,21 @@ async function ensureAllTables(){
   await ensureField('TechnikerProfile', 'avatar_preset', 'singleLineText');
   await ensureField('TechnikerProfile', 'tokens', 'number');
   await ensureField('TechnikerProfile', 'points', 'number');
+  await ensureField('TechnikerProfile', 'phone', 'singleLineText');
+  await ensureField('TechnikerProfile', 'location', 'singleLineText');
+  await ensureField('TechnikerProfile', 'geo', 'singleLineText'); // "lat,lng"
+  // KeyRequests-Tabelle für Self-Service-Registrierung
+  await ensureTable('KeyRequests', [
+    { name:'vorname', type:'singleLineText' },
+    { name:'nachname', type:'singleLineText' },
+    { name:'username', type:'singleLineText' },
+    { name:'phone', type:'singleLineText' },
+    { name:'location', type:'singleLineText' },
+    { name:'geo', type:'singleLineText' },
+    { name:'status', type:'singleLineText' },
+    { name:'created', type:'singleLineText' },
+    { name:'assigned_key', type:'singleLineText' },
+  ]);
   await ensureTable('Chats', [
     { name:'chat_id', type:'singleLineText' },
     { name:'title', type:'singleLineText' },
@@ -1442,6 +1510,12 @@ async function afterOnboarding(){
     debugLog('FULLY READY ✓✓');
     requestNotificationPermission();
     startGlobalChatsPolling();
+    // Admin-Polling für offene Key-Anfragen
+    if(isAdmin()){
+      checkPendingRequests();
+      if(window._reqPoll) clearInterval(window._reqPoll);
+      window._reqPoll = setInterval(checkPendingRequests, 30000);
+    }
   }); }, 50);
   if(window._hbInterval) clearInterval(window._hbInterval);
   window._hbInterval = setInterval(()=>{
@@ -3159,6 +3233,7 @@ function openSettings(){
     <div class="settings-row"><div class="settings-label">Frequenzumrichter</div><div class="settings-value">${esc(parseList(p.frequenzumrichter).join(', ') || '—')}</div></div>
     <div class="settings-row"><div class="settings-label">Komponenten</div><div class="settings-value">${esc(parseList(p.components).join(', ') || '—')}</div></div>
     <div class="settings-row"><div class="settings-label">Profilbild</div><button class="settings-action" onclick="openAvatarModal()">Ändern</button></div>
+    <div class="settings-row"><div><div class="settings-label">Kontakt & Standort</div><div class="settings-value" style="margin-top:3px">${esc(STATE.myProfile?.fields?.phone || '—')} · ${esc(STATE.myProfile?.fields?.location || 'Standort fehlt')}</div></div><button class="settings-action" onclick="openContactModal()">Bearbeiten</button></div>
     <div class="settings-row"><div class="settings-label">Sprache</div><div style="display:flex;gap:6px">${LANGUAGES.map(l => '<button class="settings-action" style="'+(myLang()===l.code?'background:var(--accent);color:var(--on-accent);border-color:var(--accent)':'')+'" onclick="setMyLanguage(\''+l.code+'\').then(()=>openSettings())">'+l.label+'</button>').join('')}</div></div>
     <div class="settings-row"><div class="settings-label">Expertise ändern</div><button class="settings-action" onclick="reopenOnboarding()">Bearbeiten</button></div>
     <div class="settings-row"><div><div class="settings-label">Wissensbasis</div><div class="settings-value" style="margin-top:3px">PDFs hochladen · KI-Analyse</div></div><button class="settings-action" onclick="closeModal('settingsModal');openWissenModal()">Öffnen</button></div>
@@ -3166,6 +3241,8 @@ function openSettings(){
     ${isAdmin() ? '<div class="settings-row"><div><div class="settings-label">Katalog verwalten</div><div class="settings-value" style="margin-top:3px">Modelle · Steuerungen · FU · Komponenten</div></div><button class="settings-action" onclick="closeModal(\'settingsModal\');openKatalogModal()">Öffnen</button></div>' : ''}
     ${isAdmin() ? '<div class="settings-row"><div><div class="settings-label">User-Verwaltung</div><div class="settings-value" style="margin-top:3px">Liste + Filter</div></div><button class="settings-action" onclick="openUserMgmt()">Öffnen</button></div>' : ''}
     ${isAdmin() ? '<div class="settings-row"><div><div class="settings-label">Dashboard</div><div class="settings-value" style="margin-top:3px">Statistiken + Performance</div></div><button class="settings-action" onclick="openDashboard()">Öffnen</button></div>' : ''}
+    ${isAdmin() ? '<div class="settings-row"><div><div class="settings-label">Key-Anfragen</div><div class="settings-value" style="margin-top:3px">Neue User freischalten</div></div><button class="settings-action" onclick="openAdminRequests()">Öffnen</button></div>' : ''}
+    ${isAdmin() ? '<div class="settings-row"><div><div class="settings-label">User-Karte</div><div class="settings-value" style="margin-top:3px">Standorte aller User auf Karte</div></div><button class="settings-action" onclick="openMap()">Öffnen</button></div>' : ''}
     <div class="settings-row"><div><div class="settings-label">Update erzwingen</div><div class="settings-value" style="margin-top:3px">Cache leeren + neu laden</div></div><button class="settings-action" onclick="forceHardReload()">Aktualisieren</button></div>
     <div class="settings-row"><div class="settings-label">Logout</div><button class="settings-action danger" onclick="logout()">Abmelden</button></div>
     <div class="settings-row"><div class="settings-label">Version</div><div class="settings-value">${APP_VERSION}</div></div>
@@ -3308,6 +3385,260 @@ function refreshAvatars(){
 // ============================================================
 // LEADERBOARD & MEDAILLEN
 // ============================================================
+// ============================================================
+// KONTAKT & STANDORT
+// ============================================================
+function openContactModal(){
+  closeModal('settingsModal');
+  renderContactModal();
+  openModal('contactModal');
+}
+function renderContactModal(){
+  const f = STATE.myProfile?.fields || {};
+  document.getElementById('contactModalBody').innerHTML = `
+    <div class="input-block"><label class="input-label">Handynummer</label>
+      <input type="tel" class="text-input" id="contactPhone" placeholder="+49 ..." value="${esc(f.phone||'')}"></div>
+    <div class="input-block"><label class="input-label">Standort (Adresse / Stadt)</label>
+      <input type="text" class="text-input" id="contactLocation" placeholder="z.B. München, Bayreuther Str. 5" value="${esc(f.location||'')}"></div>
+    <div class="input-block"><label class="input-label">Geo-Koordinaten (lat,lng)</label>
+      <div style="display:flex;gap:6px"><input type="text" class="text-input" id="contactGeo" placeholder="48.1351,11.5820" value="${esc(f.geo||'')}" style="flex:1"><button class="settings-action" onclick="useCurrentLocation()" style="white-space:nowrap">📍 Aktuell</button></div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-very-dim);margin-top:6px;letter-spacing:.06em">Browser fragt nach GPS-Erlaubnis. Optional, dient für Admin-Karte.</div></div>`;
+}
+async function useCurrentLocation(){
+  if(!navigator.geolocation){ toast('Geolocation nicht unterstützt', 'error'); return; }
+  toast('Position wird ermittelt...');
+  navigator.geolocation.getCurrentPosition(pos => {
+    const lat = pos.coords.latitude.toFixed(6);
+    const lng = pos.coords.longitude.toFixed(6);
+    document.getElementById('contactGeo').value = lat+','+lng;
+    toast('Position eingetragen', 'success');
+  }, err => {
+    toast('Position nicht verfügbar: ' + (err.message||''), 'error');
+  }, { enableHighAccuracy: true, timeout: 10000 });
+}
+async function saveContact(){
+  if(!STATE.myProfile) return;
+  const phone = (document.getElementById('contactPhone').value||'').trim();
+  const location = (document.getElementById('contactLocation').value||'').trim();
+  const geo = (document.getElementById('contactGeo').value||'').trim();
+  try {
+    await atUpdate('TechnikerProfile', STATE.myProfile.id, { phone, location, geo });
+    STATE.myProfile.fields.phone = phone;
+    STATE.myProfile.fields.location = location;
+    STATE.myProfile.fields.geo = geo;
+    closeModal('contactModal');
+    toast('Kontakt gespeichert', 'success');
+  } catch(e){ toast(e.message, 'error'); }
+}
+
+// ============================================================
+// KEY-ANFRAGE (Self-Service Registrierung)
+// ============================================================
+function openKeyRequest(){
+  document.getElementById('keyRequestBody').innerHTML = `
+    <div class="input-block"><label class="input-label">Vorname *</label><input type="text" class="text-input" id="krVorname" autocomplete="given-name"></div>
+    <div class="input-block"><label class="input-label">Nachname *</label><input type="text" class="text-input" id="krNachname" autocomplete="family-name"></div>
+    <div class="input-block"><label class="input-label">Username *</label><input type="text" class="text-input" id="krUsername" placeholder="So sehen dich andere" autocomplete="username"></div>
+    <div class="input-block"><label class="input-label">Handynummer (optional)</label><input type="tel" class="text-input" id="krPhone" placeholder="+49 ..." autocomplete="tel"></div>
+    <div class="input-block"><label class="input-label">Standort (Adresse / Stadt) *</label><input type="text" class="text-input" id="krLocation" placeholder="z.B. München"></div>
+    <div class="input-block"><label class="input-label">Geo-Koordinaten (optional)</label>
+      <div style="display:flex;gap:6px"><input type="text" class="text-input" id="krGeo" placeholder="lat,lng" style="flex:1"><button class="settings-action" onclick="useCurrentLocationKR()" style="white-space:nowrap">📍</button></div></div>
+    <div class="error-msg" id="krError"></div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;margin-top:14px;line-height:1.5">Nach Absenden prüft ein Admin deine Anfrage und schaltet dich frei. Du erhältst dann einen persönlichen Key.</div>`;
+  openModal('keyRequestModal');
+}
+function useCurrentLocationKR(){
+  if(!navigator.geolocation){ toast('Geolocation nicht unterstützt', 'error'); return; }
+  navigator.geolocation.getCurrentPosition(pos => {
+    document.getElementById('krGeo').value = pos.coords.latitude.toFixed(6)+','+pos.coords.longitude.toFixed(6);
+    toast('Position eingetragen', 'success');
+  }, err => toast('Position nicht verfügbar', 'error'), { enableHighAccuracy: true, timeout: 10000 });
+}
+async function submitKeyRequest(){
+  const errEl = document.getElementById('krError');
+  errEl.textContent = '';
+  const vorname = document.getElementById('krVorname').value.trim();
+  const nachname = document.getElementById('krNachname').value.trim();
+  const username = document.getElementById('krUsername').value.trim();
+  const phone = document.getElementById('krPhone').value.trim();
+  const location = document.getElementById('krLocation').value.trim();
+  const geo = document.getElementById('krGeo').value.trim();
+  if(!vorname || !nachname || !username || !location){ errEl.textContent = 'Bitte Pflichtfelder ausfüllen'; return; }
+  try {
+    // Wir brauchen einen Write-Token — Read-Token reicht für POST nicht. Nutze Read-Key wenn airtableWriteKey nicht da ist.
+    // Genauer: KeyRequests-Tabelle muss mit Read-Token beschreibbar sein. Falls nicht → Fehler.
+    const url = 'https://api.airtable.com/v0/' + APP_CONFIG.APP_BASE_ID + '/KeyRequests';
+    const res = await fetch(url, {
+      method:'POST',
+      headers:{'Authorization':'Bearer '+APP_CONFIG.AIRTABLE_READ_KEY,'Content-Type':'application/json'},
+      body: JSON.stringify({ fields: { vorname, nachname, username, phone, location, geo, status:'pending', created: new Date().toISOString() } })
+    });
+    if(!res.ok){
+      const e = await res.text();
+      throw new Error('Anfrage fehlgeschlagen: '+e.slice(0,150));
+    }
+    closeModal('keyRequestModal');
+    toast('Anfrage gesendet — du wirst informiert sobald freigeschaltet', 'success');
+  } catch(e){ errEl.textContent = e.message; }
+}
+
+// ============================================================
+// ADMIN: KEY-ANFRAGEN VERWALTEN
+// ============================================================
+async function openAdminRequests(){
+  if(!isAdmin()) return;
+  closeModal('settingsModal');
+  openModal('adminRequestsModal');
+  document.getElementById('adminRequestsBody').innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-dim)"><span class="loader"></span> Lade Anfragen...</div>';
+  try {
+    const requests = await atRead('KeyRequests');
+    renderAdminRequests(requests);
+  } catch(e){ toast(e.message, 'error'); }
+}
+function renderAdminRequests(requests){
+  const body = document.getElementById('adminRequestsBody');
+  const pending = requests.filter(r => (r.fields.status||'pending') === 'pending');
+  const others = requests.filter(r => (r.fields.status||'pending') !== 'pending');
+  let html = '<div style="font-family:JetBrains Mono,monospace;font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px">Offen: '+pending.length+' · Bearbeitet: '+others.length+'</div>';
+  if(pending.length === 0) html += '<div style="color:var(--text-very-dim);font-style:italic;text-align:center;padding:20px">Keine offenen Anfragen</div>';
+  pending.forEach(r => {
+    const f = r.fields;
+    html += '<div style="padding:14px;background:var(--surface);border:1px solid var(--accent);border-radius:10px;margin-bottom:8px">';
+    html += '<div style="font-size:14px;font-weight:700">'+esc(f.vorname||'')+' '+esc(f.nachname||'')+' · @'+esc(f.username||'?')+'</div>';
+    html += '<div style="font-family:JetBrains Mono,monospace;font-size:10px;color:var(--text-dim);margin-top:4px;line-height:1.5">';
+    if(f.phone) html += '📱 '+esc(f.phone)+'<br>';
+    if(f.location) html += '📍 '+esc(f.location)+'<br>';
+    if(f.geo) html += '🗺 '+esc(f.geo)+'<br>';
+    html += 'Eingegangen: '+esc(new Date(f.created||Date.now()).toLocaleString('de-DE'))+'</div>';
+    html += '<div style="display:flex;gap:6px;margin-top:10px"><button class="settings-action" style="flex:1" onclick="approveKeyRequest(\''+r.id+'\')">✓ Freischalten + Key vergeben</button><button class="settings-action danger" style="flex:0 0 auto" onclick="rejectKeyRequest(\''+r.id+'\')">Ablehnen</button></div>';
+    html += '</div>';
+  });
+  if(others.length){
+    html += '<div style="font-family:JetBrains Mono,monospace;font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.1em;margin:14px 0 8px">Bearbeitet</div>';
+    others.forEach(r => {
+      const f = r.fields;
+      const st = f.status === 'approved' ? '<span style="color:var(--online)">✓ Freigeschaltet</span>' : '<span style="color:var(--danger)">✗ Abgelehnt</span>';
+      html += '<div style="padding:10px;background:var(--surface);border:1px solid var(--rule-strong);border-radius:8px;margin-bottom:5px;font-size:12px">'+esc(f.vorname||'')+' '+esc(f.nachname||'')+(f.assigned_key?' · Key: <code style="font-family:JetBrains Mono;font-size:11px;color:var(--accent)">'+esc(f.assigned_key)+'</code>':'')+' · '+st+'</div>';
+    });
+  }
+  body.innerHTML = html;
+}
+async function approveKeyRequest(reqId){
+  if(!confirm('User freischalten? Es wird ein neuer Key erzeugt + 5 Start-Tokens vergeben.')) return;
+  try {
+    const requests = await atRead('KeyRequests', "RECORD_ID()='"+reqId+"'").catch(async ()=>{
+      const all = await atRead('KeyRequests');
+      return all.filter(r => r.id === reqId);
+    });
+    const req = requests[0];
+    if(!req) throw new Error('Anfrage nicht gefunden');
+    const f = req.fields;
+    // Generiere Key: SUP- + 4 zufällige Zeichen
+    const key = 'SUP-' + Math.random().toString(36).slice(2,6).toUpperCase();
+    const fullName = (f.vorname + ' ' + f.nachname).trim() || f.username;
+    // 1. User-Record anlegen
+    await atWrite('User', { api_key: key, name: f.username || fullName, role: 'user', status: 'aktiv' });
+    // 2. TechnikerProfile-Record anlegen
+    await atWrite('TechnikerProfile', {
+      api_key: key, name: f.username || fullName,
+      models:'[]', controls:'[]', frequenzumrichter:'[]', components:'[]',
+      last_seen: new Date().toISOString(), onboarding_done: false,
+      tokens: TOKEN_START, points: 0,
+      phone: f.phone||'', location: f.location||'', geo: f.geo||'',
+    });
+    // 3. KeyRequest auf approved setzen
+    await atUpdate('KeyRequests', reqId, { status: 'approved', assigned_key: key });
+    toast('Freigeschaltet · Key: '+key, 'success');
+    openAdminRequests();
+  } catch(e){ toast(e.message, 'error'); }
+}
+async function rejectKeyRequest(reqId){
+  if(!confirm('Anfrage ablehnen?')) return;
+  try {
+    await atUpdate('KeyRequests', reqId, { status: 'rejected' });
+    openAdminRequests();
+  } catch(e){ toast(e.message, 'error'); }
+}
+
+// Polling für neue Anfragen (Admin-only)
+let _lastRequestCount = -1;
+async function checkPendingRequests(){
+  if(!isAdmin()) return;
+  try {
+    const requests = await atRead('KeyRequests', "{status}='pending'");
+    if(_lastRequestCount === -1){ _lastRequestCount = requests.length; return; }
+    if(requests.length > _lastRequestCount){
+      showBrowserNotification('Neue Key-Anfrage', requests.length+' offene Anfrage(n) im Admin-Bereich');
+      toast(requests.length+' neue Key-Anfrage(n)', 'success');
+    }
+    _lastRequestCount = requests.length;
+  } catch(e){}
+}
+
+// ============================================================
+// ADMIN: USER-KARTE (Leaflet)
+// ============================================================
+let _mapInstance = null;
+function destroyMap(){
+  if(_mapInstance){ try { _mapInstance.remove(); } catch(e){} _mapInstance = null; }
+}
+async function openMap(){
+  if(!isAdmin()) return;
+  closeModal('settingsModal');
+  openModal('mapModal');
+  // Warten bis Leaflet geladen ist
+  if(typeof L === 'undefined'){
+    document.getElementById('mapContainer').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-dim)">Karte wird geladen...</div>';
+    let tries = 0;
+    while(typeof L === 'undefined' && tries < 30){ await new Promise(r => setTimeout(r, 200)); tries++; }
+    if(typeof L === 'undefined'){ toast('Karten-Bibliothek konnte nicht geladen werden', 'error'); return; }
+  }
+  document.getElementById('mapContainer').innerHTML = '';
+  // User mit Geo-Koordinaten
+  const usersWithGeo = STATE.techProfiles.filter(p =>
+    STATE.activeKeys.has(p.fields.api_key) &&
+    p.fields.geo && /^-?\d+\.?\d*,-?\d+\.?\d*$/.test(p.fields.geo)
+  );
+  // Map initialisieren
+  destroyMap();
+  let center = [50.1, 8.7]; // Default: Frankfurt
+  let zoom = 6;
+  if(usersWithGeo.length){
+    const first = usersWithGeo[0].fields.geo.split(',').map(Number);
+    center = first;
+  }
+  _mapInstance = L.map('mapContainer', { zoomControl: true }).setView(center, zoom);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap',
+    maxZoom: 18
+  }).addTo(_mapInstance);
+  // Marker für jeden User
+  usersWithGeo.forEach((p, i) => {
+    const [lat, lng] = p.fields.geo.split(',').map(Number);
+    if(isNaN(lat) || isNaN(lng)) return;
+    const initials = makeInitials(p.fields.name || p.fields.api_key);
+    const photo = avatarPhotoUrl(p);
+    const tier = tierFor(p.fields.points || 0);
+    const isOn = isOnline(p);
+    const avBg = photo ? 'background-image:url('+photo+');background-size:cover' : '';
+    const avClass = avatarPresetClass(p, i);
+    const onlineDot = isOn ? '<div style="position:absolute;bottom:-2px;right:-2px;width:10px;height:10px;background:#34d399;border:2px solid #fff;border-radius:50%"></div>' : '';
+    const medalDot = tier ? '<div style="position:absolute;top:-4px;right:-4px;font-size:14px">'+tier.icon+'</div>' : '';
+    const iconHtml = '<div style="position:relative"><div class="'+avClass+'" style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:Archivo,sans-serif;font-weight:800;font-stretch:75%;font-size:13px;color:#fff;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4);'+avBg+'">'+(photo?'':initials)+'</div>'+onlineDot+medalDot+'</div>';
+    const icon = L.divIcon({ html: iconHtml, className: '', iconSize: [40, 40], iconAnchor: [20, 20] });
+    const popup = '<div style="font-family:Manrope,sans-serif"><div style="font-weight:700;font-size:14px">'+esc(p.fields.name||'?')+'</div><div style="font-size:11px;color:#666;margin-top:3px">'+(isOn?'<span style="color:#34d399">● Online</span>':'<span style="color:#888">○ Offline</span>')+(tier?' · '+tier.icon+' '+tier.label:'')+'</div>'+(p.fields.location?'<div style="font-size:11px;color:#666;margin-top:3px">📍 '+esc(p.fields.location)+'</div>':'')+(p.fields.phone?'<div style="font-size:11px;color:#666">📱 '+esc(p.fields.phone)+'</div>':'')+'</div>';
+    L.marker([lat, lng], { icon }).addTo(_mapInstance).bindPopup(popup);
+  });
+  if(usersWithGeo.length === 0){
+    const noData = document.createElement('div');
+    noData.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(10,20,40,.95);padding:14px 18px;border-radius:8px;color:#fff;text-align:center;z-index:1000';
+    noData.innerHTML = 'Noch kein User hat Geo-Koordinaten eingetragen.<br><span style="font-size:11px;color:#888">User können in Settings → Kontakt & Standort 📍 setzen.</span>';
+    document.getElementById('mapContainer').appendChild(noData);
+  }
+  // Kartengröße neu berechnen (modal hat Fade-In)
+  setTimeout(()=>{ try { _mapInstance.invalidateSize(); } catch(e){} }, 300);
+}
+
 async function openLeaderboard(){
   openModal('leaderboardModal');
   document.getElementById('leaderboardBody').innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-dim)"><span class="loader"></span> Lade Rangliste...</div>';
