@@ -829,7 +829,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.9.3';
+const APP_VERSION = 'v2.9.4';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -2269,11 +2269,14 @@ function itemHasKnowledge(category, name){
   );
 }
 // Hat ein Katalog-Item mindestens einen aktiven, onboardeten Techniker (mensch) der es in seinem Profil führt?
+// Eigener eingeloggter User wird NICHT mitgezählt (sonst hätte ein Solo-Admin immer alle eigenen Tags als Filter).
 function itemHasActiveUser(category, name){
   const fieldMap = { model:'models', control:'controls', frequenzumrichter:'frequenzumrichter' };
   const field = fieldMap[category];
   if(!field) return false;
+  const myKey = APP_KEYS?.user?.api_key;
   return (STATE.techProfiles || []).some(p =>
+    p.fields.api_key !== myKey &&
     STATE.activeKeys.has(p.fields.api_key) &&
     p.fields.onboarding_done === true &&
     parseList(p.fields[field]).includes(name)
@@ -3536,16 +3539,27 @@ async function callAI(triggerText){
 
     const replyLang = LANG_NAMES[myLang()] || 'Deutsch';
     const chatSpecs = getChatAiSpecialists(STATE.currentChat);
+    const isMasterMode = chatSpecs.length === 0 && isAiOnlyChat(STATE.currentChat);
     let knowledgeBlock = '';
+    let availableSpecsHint = '';
     try {
       const tags = JSON.parse(STATE.currentChat.fields.context_tags || '[]');
-      // Wenn Specialists im Chat: Wissen STRIKT auf deren specialty-Items beschränken (sonst nach tags).
+      // Wenn Specialists im Chat: Wissen STRIKT auf deren specialty-Items beschränken.
+      // Im Master-Mode (Solo-KI ohne Specialist): ALLE READY-Wissensquellen mitgeben.
+      // Sonst (Mensch-Chat mit @KI-Trigger): nach tags filtern.
       let relevant = [];
       if(chatSpecs.length){
         relevant = STATE.wissen.filter(w =>
           chatSpecs.some(s => s.specialty.category === w.fields.category && s.specialty.value === w.fields.item_name) &&
           w.fields.summary
         );
+      } else if(isMasterMode){
+        relevant = STATE.wissen.filter(w => w.fields.summary && (w.fields.status === 'ready' || !w.fields.status));
+        // Liste verfügbarer Spezialisten als Hinweis (für Weiterleitung)
+        const specs = getAiSpecialists();
+        if(specs.length){
+          availableSpecsHint = '\n\nVERFÜGBARE SPEZIALISTEN (du kannst den User dorthin verweisen):\n' + specs.map(s => '- '+s.fields.name+' (Spezialgebiet: '+s.specialty.value+')').join('\n');
+        }
       } else if(tags.length){
         relevant = STATE.wissen.filter(w => tags.some(tg => tg.category === w.fields.category && tg.name === w.fields.item_name) && w.fields.summary);
       }
@@ -3554,7 +3568,7 @@ async function callAI(triggerText){
       }
     } catch(e){}
 
-    // Specialist-Identity: wenn der Chat AI-Specialists hat, übernimmt die KI deren Rolle(n).
+    // Identity-Block je nach Chat-Typ
     let identityBlock;
     if(chatSpecs.length === 1){
       const s = chatSpecs[0];
@@ -3562,6 +3576,8 @@ async function callAI(triggerText){
     } else if(chatSpecs.length > 1){
       const names = chatSpecs.map(s => s.fields.name).join(' & ');
       identityBlock = `Du bist ein Team aus KI-Spezialisten: ${names}. Nutze die jeweils passende Expertise je nach Frage. Bei Antworten kann es hilfreich sein zu kennzeichnen, welcher Spezialist gerade spricht (z.B. "[Schindler 3300 Spezialist]: ...").`;
+    } else if(isMasterMode){
+      identityBlock = 'Du bist die FLP Supporter Master-KI — der Concierge-Assistent mit Übersicht über ALLE Service-Dokumente. Du beantwortest allgemeine, querschnittliche oder Übersichtsfragen direkt anhand der Wissensquellen. Wenn die Frage klar zu einem bestimmten Modell/Steuerung/FU gehört und es dafür einen Spezialisten gibt, weise den User aktiv darauf hin: "Dafür hat der [Spezialist-Name] tieferes Wissen — möchtest du ihn direkt fragen?".';
     } else {
       identityBlock = 'Du bist die FLP Supporter KI, ein allgemeiner technischer Assistent für Aufzugstechniker bei FLP.';
     }
@@ -3581,7 +3597,7 @@ ${chatSpecs.length ? '6. Du bist als Spezialist klar abgegrenzt — Fragen ausse
 
 STIL: Antworten kurz, präzise, im Techniker-Stil — kein Lehrbuch. Bei Diagnose-Schritten nummerierte Liste. Antworte auf ${replyLang}.
 
-Chat-Titel: ${STATE.currentChat.fields.title || ''}${knowledgeBlock || '\n\n(Keine spezifischen Service-Dokumente für diesen Chat-Kontext geladen — beantworte nur was im Chat steht oder frage nach.)'}`;
+Chat-Titel: ${STATE.currentChat.fields.title || ''}${availableSpecsHint}${knowledgeBlock || '\n\n(Keine spezifischen Service-Dokumente für diesen Chat-Kontext geladen — beantworte nur was im Chat steht oder frage nach.)'}`;
 
     const userMessage = `Chat-Verlauf:\n${context}\n\nDie KI wurde gerade direkt angesprochen. Antworte auf die letzte Nachricht "${triggerText}" im Kontext des Chats. Halte dich kurz (max. 6 Sätze).`;
 
@@ -3607,7 +3623,8 @@ Chat-Titel: ${STATE.currentChat.fields.title || ''}${knowledgeBlock || '\n\n(Kei
 
     const created = new Date().toISOString();
     const _specs = getChatAiSpecialists(STATE.currentChat);
-    const aiSenderName = _specs.length === 1 ? _specs[0].fields.name : (_specs.length > 1 ? 'KI-Spezialisten' : 'FLP Supporter KI');
+    const _isMaster = _specs.length === 0 && isAiOnlyChat(STATE.currentChat);
+    const aiSenderName = _specs.length === 1 ? _specs[0].fields.name : (_specs.length > 1 ? 'KI-Spezialisten' : (_isMaster ? 'FLP Master-KI' : 'FLP Supporter KI'));
     await atWrite('Messages', {
       msg_id: 'm_' + Date.now(),
       chat_id: STATE.currentChat.fields.chat_id,
