@@ -41,6 +41,21 @@ button{cursor:pointer;border:none;background:none}
   padding:max(14px,env(safe-area-inset-top)) 22px 14px;display:flex;justify-content:space-between;
   align-items:center;border-bottom:1px solid var(--rule);flex-shrink:0;gap:12px;
 }
+.user-bar + .app-header, .user-bar + .chat-header { padding-top:12px; }
+
+.user-bar{
+  padding:max(8px,env(safe-area-inset-top)) 18px 7px;
+  background:rgba(255,255,255,.04);
+  border-bottom:1px solid var(--rule-strong);
+  display:flex;justify-content:space-between;align-items:center;gap:10px;
+  font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--text-dim);font-weight:500;flex-shrink:0;
+}
+.user-bar-left{display:flex;align-items:center;gap:8px;min-width:0;flex:1}
+.user-bar-name{color:var(--text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.user-bar-role{padding:2px 7px;border-radius:3px;font-weight:700;font-size:9px;letter-spacing:.1em;flex-shrink:0;background:rgba(56,189,248,.12);color:var(--accent)}
+.user-bar-role.admin{background:rgba(192,132,252,.18);color:var(--ai)}
+.user-bar-version{flex-shrink:0;color:var(--text-very-dim)}
 .app-logo{font-family:'Archivo',sans-serif;font-weight:900;font-stretch:75%;font-size:16px;letter-spacing:.02em;display:flex;align-items:center;gap:8px}
 .app-logo .dot{width:7px;height:7px;background:var(--accent);border-radius:50%;box-shadow:0 0 10px var(--accent)}
 .profile-mini{
@@ -321,7 +336,7 @@ button{cursor:pointer;border:none;background:none}
 .fullscreen-loader .loader{width:32px;height:32px;border-width:3px}
 .fullscreen-loader .label{font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--text-dim)}
 
-.version-tag{position:fixed;bottom:6px;right:8px;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-very-dim);letter-spacing:.08em;z-index:50;pointer-events:none}
+.version-tag{display:none}
 
 @media(min-width:768px){
   .app{max-width:440px;margin:0 auto;border-left:1px solid var(--rule);border-right:1px solid var(--rule)}
@@ -372,6 +387,7 @@ button{cursor:pointer;border:none;background:none}
 
   <!-- HOME SCREEN -->
   <div class="view" id="view-home">
+    <div class="user-bar" id="userBarHome"></div>
     <div class="app-header">
       <div class="app-logo"><span class="dot"></span>FLP SUPPORTER</div>
       <div class="profile-mini" id="profileBtn" onclick="openSettings()"></div>
@@ -401,6 +417,7 @@ button{cursor:pointer;border:none;background:none}
 
   <!-- CHAT SCREEN -->
   <div class="view" id="view-chat">
+    <div class="user-bar" id="userBarChat"></div>
     <div class="chat-header">
       <button class="back-btn" onclick="closeChat()">←</button>
       <div class="chat-header-content">
@@ -470,7 +487,7 @@ button{cursor:pointer;border:none;background:none}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v1.2.2';
+const APP_VERSION = 'v1.3';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -882,9 +899,27 @@ function renderHome(){
   // Profile-Avatar Initialen
   const initials = makeInitials(APP_KEYS.user.name || 'XX');
   document.getElementById('profileBtn').textContent = initials;
+  renderUserBar();
   renderFilterStrip();
   renderConstellation();
   renderChatsList();
+}
+
+function renderUserBar(){
+  const u = APP_KEYS.user || {};
+  const role = (u.role || 'user').toLowerCase();
+  const roleLabel = role === 'admin' ? 'ADMIN' : 'USER';
+  const html = `
+    <div class="user-bar-left">
+      <span class="user-bar-name">${esc(u.name || u.api_key || '—')}</span>
+      <span class="user-bar-role ${role==='admin'?'admin':''}">${roleLabel}</span>
+    </div>
+    <span class="user-bar-version">${APP_VERSION}</span>
+  `;
+  ['userBarHome','userBarChat'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.innerHTML = html;
+  });
 }
 
 function renderFilterStrip(){
