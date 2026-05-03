@@ -232,11 +232,12 @@ button{cursor:pointer;border:none;background:none}
 /* ===== TABS ===== */
 .tabs{display:flex;border-bottom:1px solid var(--rule);flex-shrink:0;background:var(--phone-screen)}
 .tab{
-  flex:1;padding:12px 8px;font-family:'JetBrains Mono',monospace;font-size:10.5px;
+  flex:1;padding:18px 8px;font-family:'JetBrains Mono',monospace;font-size:11px;
   text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);font-weight:600;
-  background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;
+  background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;min-height:48px;
 }
-.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);background:rgba(56,189,248,.04)}
+.tab:active{background:var(--surface)}
 
 /* ===== CHAT VIEW ===== */
 .chat-header{padding:14px 18px;border-bottom:1px solid var(--rule);flex-shrink:0;display:flex;gap:10px;align-items:flex-start}
@@ -738,7 +739,7 @@ window.fetch = async function(input, init){
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v1.9.3';
+const APP_VERSION = 'v1.9.4';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -839,14 +840,11 @@ async function atUpdate(table, recordId, fields){
   return await res.json();
 }
 
-// TABELLE ANLEGEN (Meta-API)
+// TABELLE ANLEGEN (Meta-API, nutzt Meta-Cache)
 async function ensureTable(tableName, fields){
   if(!APP_KEYS.airtableWriteKey) throw new Error('Bitte einloggen');
-  const metaRes = await fetch(
-    'https://api.airtable.com/v0/meta/bases/' + APP_CONFIG.APP_BASE_ID + '/tables',
-    { headers: { 'Authorization':'Bearer '+APP_KEYS.airtableWriteKey } }
-  );
-  const meta = await metaRes.json();
+  const meta = await getMetaCached();
+  if(!meta) throw new Error('Meta-Schema nicht ladbar');
   const exists = (meta.tables || []).find(t => t.name === tableName);
   if(exists) return exists;
   const createRes = await fetch(
@@ -856,20 +854,35 @@ async function ensureTable(tableName, fields){
       body: JSON.stringify({ name: tableName, fields }) }
   );
   if(!createRes.ok){ const e = await createRes.text(); throw new Error('Tabelle anlegen fehlgeschlagen: '+e); }
-  return await createRes.json();
+  const newTable = await createRes.json();
+  // Cache aktualisieren
+  if(_metaCache?.tables) _metaCache.tables.push(newTable);
+  return newTable;
 }
 
-// FELD ZU EXISTIERENDER TABELLE HINZUFÜGEN (idempotent)
-// Liefert true wenn Feld jetzt existiert, false wenn Erstellung fehlschlug.
-async function ensureField(tableName, fieldName, type){
-  if(!APP_KEYS.airtableWriteKey) return false;
+// META-CACHE — eine Meta-Anfrage für die gesamte Migration teilen
+let _metaCache = null;
+async function getMetaCached(){
+  if(_metaCache) return _metaCache;
+  if(!APP_KEYS.airtableWriteKey) return null;
   try {
-    const metaRes = await fetch(
+    const res = await fetch(
       'https://api.airtable.com/v0/meta/bases/' + APP_CONFIG.APP_BASE_ID + '/tables',
       { headers: { 'Authorization':'Bearer '+APP_KEYS.airtableWriteKey } }
     );
-    if(!metaRes.ok) return false;
-    const meta = await metaRes.json();
+    if(!res.ok) return null;
+    _metaCache = await res.json();
+    return _metaCache;
+  } catch(e){ return null; }
+}
+function invalidateMetaCache(){ _metaCache = null; }
+
+// FELD ZU EXISTIERENDER TABELLE HINZUFÜGEN (idempotent, nutzt Meta-Cache)
+async function ensureField(tableName, fieldName, type){
+  if(!APP_KEYS.airtableWriteKey) return false;
+  try {
+    const meta = await getMetaCached();
+    if(!meta) return false;
     const table = (meta.tables || []).find(t => t.name === tableName);
     if(!table) return false;
     if((table.fields || []).find(f => f.name === fieldName)) return true;
@@ -879,6 +892,11 @@ async function ensureField(tableName, fieldName, type){
         headers:{'Authorization':'Bearer '+APP_KEYS.airtableWriteKey,'Content-Type':'application/json'},
         body: JSON.stringify({ name: fieldName, type }) }
     );
+    if(createRes.ok){
+      // Cache aktualisieren: neues Feld hinzufügen
+      const tbl = (_metaCache?.tables || []).find(t => t.name === tableName);
+      if(tbl) tbl.fields.push({ name: fieldName, type });
+    }
     return createRes.ok;
   } catch(e){ return false; }
 }
@@ -1061,6 +1079,7 @@ async function ensureAllTables(){
     { name:'uploaded_at', type:'singleLineText' },
     { name:'status', type:'singleLineText' },
   ]);
+  invalidateMetaCache();
   localStorage.setItem(migKey, '1');
 }
 
