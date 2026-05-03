@@ -44,7 +44,7 @@ button{cursor:pointer;border:none;background:none}
 
 /* ===== HEADER ===== */
 .app-header{
-  padding:14px 22px;display:flex;justify-content:space-between;
+  padding:8px 22px;display:flex;justify-content:space-between;
   align-items:center;border-bottom:1px solid var(--rule);flex-shrink:0;gap:12px;
 }
 
@@ -727,7 +727,7 @@ window.fetch = async function(input, init){
   }
 };
 
-// Touch-Tracking — sehen ob Taps überhaupt ankommen + Koordinaten
+// Touch-Tracking — sehen ob Taps überhaupt ankommen + Koordinaten + komplette Element-Stack
 ['pointerdown','click'].forEach(ev => {
   document.addEventListener(ev, e => {
     const tag = (e.target.tagName || '').toLowerCase();
@@ -735,13 +735,23 @@ window.fetch = async function(input, init){
     const cls = e.target.className ? '.'+String(e.target.className).split(' ')[0] : '';
     const x = Math.round(e.clientX || 0), y = Math.round(e.clientY || 0);
     debugLog(ev+' @'+x+','+y+' '+tag+id+cls, 'tap');
+    // Bei pointerdown: ganze Z-Stack logen
+    if(ev === 'pointerdown' && document.elementsFromPoint){
+      const stack = document.elementsFromPoint(x, y).slice(0, 4).map(el => {
+        const t = el.tagName.toLowerCase();
+        const i = el.id ? '#'+el.id : '';
+        const c = el.className ? '.'+String(el.className).split(' ')[0] : '';
+        return t+i+c;
+      });
+      debugLog('  stack: '+stack.join(' < '), 'tap');
+    }
   }, { capture: true, passive: true });
 });
 
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v1.9.5';
+const APP_VERSION = 'v1.9.6';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
