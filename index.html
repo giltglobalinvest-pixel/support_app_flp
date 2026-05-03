@@ -38,7 +38,7 @@ button{cursor:pointer;border:none;background:none}
 
 /* ===== HEADER ===== */
 .app-header{
-  padding:max(14px,env(safe-area-inset-top)) 22px 14px;display:flex;justify-content:space-between;
+  padding:calc(max(8px,env(safe-area-inset-top)) + 14px) 22px 14px;display:flex;justify-content:space-between;
   align-items:center;border-bottom:1px solid var(--rule);flex-shrink:0;gap:12px;
 }
 .app-logo{font-family:'Archivo',sans-serif;font-weight:900;font-stretch:75%;font-size:16px;letter-spacing:.02em;display:flex;align-items:center;gap:8px}
@@ -157,10 +157,13 @@ button{cursor:pointer;border:none;background:none}
 
 /* ===== BOTTOM BAR ===== */
 .bottom-bar{padding:14px 18px max(28px,env(safe-area-inset-bottom));border-top:1px solid var(--rule);background:var(--phone-screen);flex-shrink:0;display:flex;gap:8px}
+.bottom-bar .action-button{flex:1}
+.bottom-bar .action-button.cancel{flex:0 0 50px}
+.bottom-bar #aiOnlyBtn{flex:0 0 auto}
 .action-button{
-  flex:1;padding:14px;background:var(--surface);color:var(--text);border:1px solid var(--rule-strong);
+  padding:14px;background:var(--surface);color:var(--text);border:1px solid var(--rule-strong);
   border-radius:10px;font-family:'Manrope',sans-serif;font-weight:600;font-size:14px;
-  display:flex;align-items:center;justify-content:center;gap:8px;letter-spacing:-.01em;transition:transform .1s;
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;letter-spacing:-.01em;transition:transform .1s;
 }
 .action-button:active{transform:scale(.985)}
 .action-button.primary{background:var(--accent);color:var(--on-accent);border-color:var(--accent);box-shadow:0 8px 20px -8px var(--accent)}
@@ -204,7 +207,7 @@ button{cursor:pointer;border:none;background:none}
 .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
 
 /* ===== CHAT VIEW ===== */
-.chat-header{padding:max(8px,env(safe-area-inset-top)) 18px 14px;border-bottom:1px solid var(--rule);flex-shrink:0;display:flex;gap:10px;align-items:flex-start}
+.chat-header{padding:calc(max(8px,env(safe-area-inset-top)) + 14px) 18px 14px;border-bottom:1px solid var(--rule);flex-shrink:0;display:flex;gap:10px;align-items:flex-start}
 .back-btn{width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--text);flex-shrink:0;margin-top:2px}
 .chat-header-content{flex:1;min-width:0}
 .chat-meta{font-family:'JetBrains Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:var(--text-dim);display:flex;align-items:center;gap:8px;margin-bottom:5px}
@@ -437,7 +440,7 @@ button{cursor:pointer;border:none;background:none}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v1.1';
+const APP_VERSION = 'v1.1.1';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -873,7 +876,7 @@ function renderConstellation(){
   if(others.length === 0){
     const empty = document.createElement('div');
     empty.className = 'constellation-empty';
-    empty.innerHTML = '<div class="icon">○</div><div>Noch keine Kollegen im Netzwerk.<br>Frag direkt die <strong>FLP Supporter KI</strong>.</div><button class="action-button primary" style="margin-top:18px;max-width:240px" onclick="startAiOnlyChat()">🤖 KI-Chat starten</button>';
+    empty.innerHTML = '<div class="icon">○</div><div>Noch keine Kollegen im Netzwerk.<br>Frag direkt die <strong>FLP Supporter KI</strong>.</div><button class="action-button primary" style="margin-top:18px;width:auto;max-width:240px;flex:0 0 auto" onclick="startAiOnlyChat()">🤖 KI-Chat starten</button>';
     cont.appendChild(empty);
     document.getElementById('multiSelectBtn').disabled = true;
     return;
@@ -885,7 +888,7 @@ function renderConstellation(){
   if(matching.length === 0){
     const empty = document.createElement('div');
     empty.className = 'constellation-empty';
-    empty.innerHTML = '<div class="icon">○</div><div>Niemand passt zum Filter.<br>Filter ändern oder direkt die <strong>FLP Supporter KI</strong> fragen.</div><button class="action-button primary" style="margin-top:18px;max-width:240px" onclick="startAiOnlyChat()">🤖 KI-Chat starten</button>';
+    empty.innerHTML = '<div class="icon">○</div><div>Niemand passt zum Filter.<br>Filter ändern oder direkt die <strong>FLP Supporter KI</strong> fragen.</div><button class="action-button primary" style="margin-top:18px;width:auto;max-width:240px;flex:0 0 auto" onclick="startAiOnlyChat()">🤖 KI-Chat starten</button>';
     cont.appendChild(empty);
   } else if(onlineMatching.length === 0){
     const empty = document.createElement('div');
