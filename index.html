@@ -106,6 +106,10 @@ button{cursor:pointer;border:none;background:none}
 @media (max-width:768px){
   .login-content{padding-top:calc(32px + env(safe-area-inset-top));padding-bottom:calc(28px + env(safe-area-inset-bottom));padding-left:calc(28px + env(safe-area-inset-left));padding-right:calc(28px + env(safe-area-inset-right))}
 }
+.login-lang-toggle{display:flex;gap:6px;justify-content:flex-end;margin-bottom:14px}
+.login-lang-toggle .lang-pill{background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.12em;padding:6px 10px;border-radius:20px;cursor:pointer;transition:all .15s}
+.login-lang-toggle .lang-pill.active{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.login-lang-toggle .lang-pill:active{transform:scale(.95)}
 .welcome-eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.16em;color:var(--accent);font-weight:700;margin-bottom:18px}
 .welcome-title{font-family:'Archivo',sans-serif;font-weight:900;font-stretch:75%;font-size:48px;line-height:.9;letter-spacing:-.04em;margin-bottom:22px}
 .welcome-title .accent{color:var(--accent)}
@@ -531,18 +535,7 @@ button{cursor:pointer;border:none;background:none}
 
   <!-- LOGIN SCREEN -->
   <div class="view" id="view-login">
-    <div class="login-content">
-      <div class="welcome-eyebrow">FLP · SUPPORTER</div>
-      <div class="welcome-title">Brauchst du<br>einen <span class="accent">zweiten</span><br>Mann?</div>
-      <div class="welcome-text">Live-Support für Aufzugstechniker.<br>Der richtige Mensch + das richtige Wissen — in unter 30 Sekunden.</div>
-      <div class="input-block">
-        <label class="input-label">Dein persönlicher Schlüssel</label>
-        <input type="text" class="text-input" id="loginKey" placeholder="z.B. mw-7f3k-9q2l" autocomplete="off" spellcheck="false">
-        <div class="error-msg" id="loginError"></div>
-      </div>
-      <button class="action-button primary" id="loginBtn" onclick="doLogin()">Einloggen →</button>
-      <div style="text-align:center;margin-top:18px"><button onclick="openKeyRequest()" style="background:transparent;border:none;color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.12em;cursor:pointer;padding:8px 12px">Noch keinen Key? · Key beantragen →</button></div>
-    </div>
+    <div class="login-content" id="loginContent"></div>
   </div>
 
   <!-- ONBOARDING SCREEN -->
@@ -833,7 +826,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.6';
+const APP_VERSION = 'v2.7';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -1063,15 +1056,15 @@ async function doLogin(){
   const errEl = document.getElementById('loginError');
   const btn = document.getElementById('loginBtn');
   errEl.textContent = '';
-  if(!key){ errEl.textContent = 'Bitte Key eingeben'; return; }
-  btn.disabled = true; btn.innerHTML = '<span class="loader"></span> Prüfe...';
+  if(!key){ errEl.textContent = t('login_key_empty'); return; }
+  btn.disabled = true; btn.innerHTML = '<span class="loader"></span> '+t('login_btn_check');
   try {
     await loginWithUserKey(key);
     await afterLogin();
   } catch(e){
     console.error('Login error:', e);
-    errEl.textContent = (e && e.message) ? e.message : ('Login fehlgeschlagen — ' + (e ? String(e).slice(0,200) : 'unbekannter Fehler'));
-    btn.disabled = false; btn.innerHTML = 'Einloggen →';
+    errEl.textContent = (e && e.message) ? e.message : (t('login_key_invalid') + ' — ' + (e ? String(e).slice(0,200) : ''));
+    btn.disabled = false; btn.innerHTML = t('login_btn');
   }
 }
 
@@ -1398,7 +1391,7 @@ function avatarHTML(profile, sizePx, fallbackIdx, extraClass){
 }
 
 // ============================================================
-// SPRACHE & ÜBERSETZUNG
+// SPRACHE & ÜBERSETZUNG (i18n)
 // ============================================================
 const LANGUAGES = [
   { code:'de', label:'Deutsch' },
@@ -1406,8 +1399,372 @@ const LANGUAGES = [
 ];
 const LANG_NAMES = { de:'Deutsch', en:'English' };
 
+const I18N = {
+  de: {
+    // Login
+    login_eyebrow: 'FLP · SUPPORTER',
+    login_title: 'Brauchst du<br>einen <span class="accent">zweiten</span><br>Mann?',
+    login_intro: 'Live-Support für Aufzugstechniker.<br>Der richtige Mensch + das richtige Wissen — in unter 30 Sekunden.',
+    login_key_label: 'Dein persönlicher Schlüssel',
+    login_btn: 'Einloggen →',
+    login_btn_check: 'Prüfe...',
+    login_key_request: 'Noch keinen Key? · Key beantragen →',
+    login_key_empty: 'Bitte Key eingeben',
+    login_key_invalid: 'Ungültiger Key',
+    loader_starting: 'App startet',
+    loader_login: 'Login wird geprüft',
+    loader_tables: 'Tabellen werden vorbereitet...',
+    loader_katalog: 'Katalog + Profil parallel',
+    loader_profile: 'Profile werden geladen',
+    loader_done: 'Fertig',
+    // Tabs
+    tab_constellation: 'Konstellation',
+    tab_chats: 'Meine Chats',
+    // Filter
+    filter: 'Filter',
+    filter_online: 'Online',
+    filter_apply: 'Techniker anzeigen',
+    filter_models: 'Aufzugsmodell',
+    filter_controls: 'Steuerung',
+    filter_fu: 'Frequenzumrichter',
+    filter_components: 'Komponente',
+    filter_availability: 'Verfügbarkeit',
+    filter_now_online: 'Jetzt online',
+    filter_medal: 'Medaille',
+    filter_no_medal: 'Ohne Medaille',
+    // Empty states
+    empty_no_colleagues: 'Noch keine Kollegen im Netzwerk.<br>Frag direkt die <strong>FLP Supporter KI</strong>.',
+    empty_no_filter_match: 'Niemand passt zum Filter.<br>Filter ändern oder direkt die <strong>FLP Supporter KI</strong> fragen.',
+    empty_nobody_online: 'Niemand online.',
+    ki_chat_starten: '🤖 KI-Chat starten',
+    ki_chat_inline: 'KI direkt fragen →',
+    multi_select: '+ Mehrere auswählen',
+    ki_fragen: '🤖 KI fragen',
+    chat_starten: 'Chat starten →',
+    // Chat input
+    chat_input_placeholder: 'Nachricht oder @KI fragen...',
+    chat_input_placeholder_ai: 'Frag die KI...',
+    // Chat
+    chat_meta_live: 'LIVE',
+    chat_meta_solved: 'GELÖST',
+    chat_back: '←',
+    chat_resolve_confirm: 'Chat als "gelöst" markieren? Die KI fasst den Fall zusammen und nimmt das Wissen in die Datenbank auf.',
+    chat_marked_resolved: 'Als gelöst markiert · Wissens-Extraktion läuft...',
+    chat_direct_ki: 'DIREKTER KI-CHAT',
+    chat_address_with_ki: 'MIT @KI ANSPRECHEN',
+    // Chats list
+    chats_filter_active: 'Aktiv',
+    chats_filter_resolved: 'Gelöst',
+    chats_filter_all: 'Alle',
+    chats_empty_active: 'Keine aktiven Chats.<br>Starte einen über die Konstellation.',
+    chats_empty_resolved: 'Keine gelösten Chats.',
+    chats_empty_all: 'Noch keine Chats.',
+    chat_new_reply: 'Neue Antwort',
+    chat_status_active: 'Aktiv',
+    chat_status_resolved: 'Gelöst',
+    // Settings
+    settings_title: 'Profil & Einstellungen',
+    settings_user_key: 'User-Key',
+    settings_models: 'Modelle',
+    settings_controls: 'Steuerungen',
+    settings_fu: 'Frequenzumrichter',
+    settings_components: 'Komponenten',
+    settings_avatar: 'Profilbild',
+    settings_contact: 'Kontakt & Standort',
+    settings_language: 'Sprache',
+    settings_expertise: 'Expertise ändern',
+    settings_knowledge: 'Wissensbasis',
+    settings_knowledge_sub: 'PDFs hochladen · KI-Analyse',
+    settings_points: 'Punkte & Medaillen',
+    settings_katalog: 'Katalog verwalten',
+    settings_user_mgmt: 'User-Verwaltung',
+    settings_dashboard: 'Dashboard',
+    settings_key_requests: 'Key-Anfragen',
+    settings_map: 'User-Karte',
+    settings_reload: 'Update erzwingen',
+    settings_logout: 'Logout',
+    settings_logout_btn: 'Abmelden',
+    settings_version: 'Version',
+    settings_edit: 'Bearbeiten',
+    settings_open: 'Öffnen',
+    settings_change: 'Ändern',
+    settings_refresh: 'Aktualisieren',
+    standort_missing: 'Standort fehlt',
+    // Avatar
+    avatar_title: 'Profilbild ändern',
+    avatar_own_photo: 'Eigenes Foto',
+    avatar_upload_label: 'Foto hochladen',
+    avatar_upload_hint: '(wird auf 256px komprimiert)',
+    avatar_remove: 'Foto entfernen',
+    avatar_choice: 'Avatar-Auswahl',
+    avatar_own_photo_label: 'Eigenes Foto',
+    avatar_preset_label: 'Avatar-Preset',
+    // Onboarding
+    ob_step_models: 'Welche Modelle kennst du?',
+    ob_step_models_hint: 'Mehrfachauswahl. Bestimmt, bei welchen Anfragen du gefunden wirst.',
+    ob_step_controls: 'Welche Steuerungen?',
+    ob_step_controls_hint: 'Mehrfachauswahl möglich.',
+    ob_step_fu: 'Welche Frequenzumrichter?',
+    ob_step_fu_hint: 'Mehrfachauswahl. Neue FU-Modelle kannst du unten hinzufügen.',
+    ob_step_components: 'Spezialisierungen?',
+    ob_step_components_hint: 'Komponenten in denen du tief drin bist.',
+    ob_summary_title: 'Deine Expertise',
+    ob_summary_hint: 'So tauchst du in der Konstellation auf. Du kannst das jederzeit in den Einstellungen ändern.',
+    ob_add_own: '+ Eigenes hinzufügen',
+    ob_back: '←',
+    ob_abort: 'Abbrechen',
+    ob_next: 'Weiter →',
+    ob_finish: 'Loslegen →',
+    ob_step: 'Schritt',
+    ob_step_of: '/',
+    ob_models_label: 'Modelle',
+    ob_controls_label: 'Steuerungen',
+    ob_fu_label: 'Frequenzumrichter',
+    ob_components_label: 'Komponenten',
+    ob_nothing: '— nichts gewählt',
+    // Pre-Chat
+    prechat_title: 'Worum geht\'s?',
+    prechat_hint: 'Wähle worum es im Chat geht — die KI nutzt dann gezielt das passende Wissen aus den hochgeladenen Dokumenten.',
+    prechat_send: 'Chat starten →',
+    // Voice
+    voice_recording: 'AUFNAHME LÄUFT',
+    voice_speak_now: 'Sprich jetzt...',
+    voice_stop: 'Stopp →',
+    voice_discard: 'Verwerfen',
+    voice_send: 'Senden →',
+    voice_edit_title: 'TRANSKRIPT PRÜFEN & BEARBEITEN',
+    voice_edit_placeholder: 'Transkript hier bearbeiten...',
+    voice_edit_hint_ok: 'Du kannst den Text vor dem Senden anpassen.',
+    voice_edit_hint_empty: 'Kein Transkript erkannt — bitte tippen.',
+    voice_transcript_label: '🎙 Transkript',
+    voice_uploading: 'Sprachnachricht wird gesendet...',
+    voice_sent: 'Sprachnachricht gesendet',
+    voice_too_big: 'Sprachnachricht zu groß',
+    // Key request
+    keyreq_title: 'Key beantragen',
+    keyreq_vorname: 'Vorname *',
+    keyreq_nachname: 'Nachname *',
+    keyreq_username: 'Username *',
+    keyreq_username_hint: 'So sehen dich andere',
+    keyreq_phone: 'Handynummer (optional)',
+    keyreq_location: 'Standort (Adresse / Stadt) *',
+    keyreq_geo: 'Geo-Koordinaten (optional)',
+    keyreq_required: 'Bitte Pflichtfelder ausfüllen',
+    keyreq_submit: 'Absenden',
+    keyreq_info: 'Nach Absenden prüft ein Admin deine Anfrage und schaltet dich frei. Du erhältst dann einen persönlichen Key.',
+    keyreq_sent: 'Anfrage gesendet — du wirst informiert sobald freigeschaltet',
+    // Contact
+    contact_title: 'Kontakt & Standort',
+    contact_phone: 'Handynummer',
+    contact_location: 'Standort (Adresse / Stadt)',
+    contact_geo: 'Geo-Koordinaten (lat,lng)',
+    contact_geo_hint: 'Browser fragt nach GPS-Erlaubnis. Optional, dient für Admin-Karte.',
+    contact_save: 'Speichern',
+    contact_saved: 'Kontakt gespeichert',
+    use_current: '📍 Aktuell',
+    // Toasts
+    saved: 'Gespeichert',
+    deleted: 'Gelöscht',
+    yes: 'Ja',
+    no: 'Nein',
+    cancel: 'Abbrechen',
+  },
+  en: {
+    login_eyebrow: 'FLP · SUPPORTER',
+    login_title: 'Need a<br>second pair<br>of <span class="accent">hands</span>?',
+    login_intro: 'Live support for elevator technicians.<br>The right person + the right knowledge — in under 30 seconds.',
+    login_key_label: 'Your personal key',
+    login_btn: 'Sign in →',
+    login_btn_check: 'Checking...',
+    login_key_request: 'No key yet? · Request one →',
+    login_key_empty: 'Please enter your key',
+    login_key_invalid: 'Invalid key',
+    loader_starting: 'App starting',
+    loader_login: 'Checking login',
+    loader_tables: 'Preparing tables...',
+    loader_katalog: 'Catalog + profile in parallel',
+    loader_profile: 'Loading profile',
+    loader_done: 'Done',
+    tab_constellation: 'Constellation',
+    tab_chats: 'My Chats',
+    filter: 'Filter',
+    filter_online: 'Online',
+    filter_apply: 'Show technicians',
+    filter_models: 'Elevator model',
+    filter_controls: 'Controller',
+    filter_fu: 'Frequency converter',
+    filter_components: 'Component',
+    filter_availability: 'Availability',
+    filter_now_online: 'Online now',
+    filter_medal: 'Medal',
+    filter_no_medal: 'No medal',
+    empty_no_colleagues: 'No colleagues in the network yet.<br>Ask the <strong>FLP Supporter AI</strong> directly.',
+    empty_no_filter_match: 'No one matches the filter.<br>Change filter or ask the <strong>FLP Supporter AI</strong>.',
+    empty_nobody_online: 'Nobody online.',
+    ki_chat_starten: '🤖 Start AI chat',
+    ki_chat_inline: 'Ask AI directly →',
+    multi_select: '+ Select multiple',
+    ki_fragen: '🤖 Ask AI',
+    chat_starten: 'Start chat →',
+    chat_input_placeholder: 'Message or @AI to ask...',
+    chat_input_placeholder_ai: 'Ask the AI...',
+    chat_meta_live: 'LIVE',
+    chat_meta_solved: 'SOLVED',
+    chat_back: '←',
+    chat_resolve_confirm: 'Mark chat as "solved"? The AI will summarize the case and add the knowledge to the database.',
+    chat_marked_resolved: 'Marked as solved · Knowledge extraction running...',
+    chat_direct_ki: 'DIRECT AI CHAT',
+    chat_address_with_ki: 'ADDRESS WITH @AI',
+    chats_filter_active: 'Active',
+    chats_filter_resolved: 'Solved',
+    chats_filter_all: 'All',
+    chats_empty_active: 'No active chats.<br>Start one via the constellation.',
+    chats_empty_resolved: 'No solved chats.',
+    chats_empty_all: 'No chats yet.',
+    chat_new_reply: 'New reply',
+    chat_status_active: 'Active',
+    chat_status_resolved: 'Solved',
+    settings_title: 'Profile & Settings',
+    settings_user_key: 'User key',
+    settings_models: 'Models',
+    settings_controls: 'Controllers',
+    settings_fu: 'Frequency converters',
+    settings_components: 'Components',
+    settings_avatar: 'Profile picture',
+    settings_contact: 'Contact & Location',
+    settings_language: 'Language',
+    settings_expertise: 'Edit expertise',
+    settings_knowledge: 'Knowledge base',
+    settings_knowledge_sub: 'Upload PDFs · AI analysis',
+    settings_points: 'Points & Medals',
+    settings_katalog: 'Manage catalog',
+    settings_user_mgmt: 'User management',
+    settings_dashboard: 'Dashboard',
+    settings_key_requests: 'Key requests',
+    settings_map: 'User map',
+    settings_reload: 'Force update',
+    settings_logout: 'Logout',
+    settings_logout_btn: 'Sign out',
+    settings_version: 'Version',
+    settings_edit: 'Edit',
+    settings_open: 'Open',
+    settings_change: 'Change',
+    settings_refresh: 'Refresh',
+    standort_missing: 'No location',
+    avatar_title: 'Change profile picture',
+    avatar_own_photo: 'Own photo',
+    avatar_upload_label: 'Upload photo',
+    avatar_upload_hint: '(compressed to 256px)',
+    avatar_remove: 'Remove photo',
+    avatar_choice: 'Avatar selection',
+    avatar_own_photo_label: 'Own photo',
+    avatar_preset_label: 'Avatar preset',
+    ob_step_models: 'Which models do you know?',
+    ob_step_models_hint: 'Multi-select. Determines which inquiries you get matched with.',
+    ob_step_controls: 'Which controllers?',
+    ob_step_controls_hint: 'Multiple selection possible.',
+    ob_step_fu: 'Which frequency converters?',
+    ob_step_fu_hint: 'Multi-select. Add new FC models below.',
+    ob_step_components: 'Specializations?',
+    ob_step_components_hint: 'Components you are deep into.',
+    ob_summary_title: 'Your expertise',
+    ob_summary_hint: 'This is how you appear in the constellation. You can change this anytime in settings.',
+    ob_add_own: '+ Add your own',
+    ob_back: '←',
+    ob_abort: 'Cancel',
+    ob_next: 'Next →',
+    ob_finish: 'Get started →',
+    ob_step: 'Step',
+    ob_step_of: '/',
+    ob_models_label: 'Models',
+    ob_controls_label: 'Controllers',
+    ob_fu_label: 'Frequency converters',
+    ob_components_label: 'Components',
+    ob_nothing: '— nothing selected',
+    prechat_title: 'What is this about?',
+    prechat_hint: 'Choose what the chat is about — the AI uses the matching knowledge from uploaded documents.',
+    prechat_send: 'Start chat →',
+    voice_recording: 'RECORDING',
+    voice_speak_now: 'Speak now...',
+    voice_stop: 'Stop →',
+    voice_discard: 'Discard',
+    voice_send: 'Send →',
+    voice_edit_title: 'REVIEW & EDIT TRANSCRIPT',
+    voice_edit_placeholder: 'Edit transcript here...',
+    voice_edit_hint_ok: 'You can edit the text before sending.',
+    voice_edit_hint_empty: 'No transcript detected — please type.',
+    voice_transcript_label: '🎙 Transcript',
+    voice_uploading: 'Sending voice message...',
+    voice_sent: 'Voice message sent',
+    voice_too_big: 'Voice message too large',
+    keyreq_title: 'Request a key',
+    keyreq_vorname: 'First name *',
+    keyreq_nachname: 'Last name *',
+    keyreq_username: 'Username *',
+    keyreq_username_hint: 'How others see you',
+    keyreq_phone: 'Mobile (optional)',
+    keyreq_location: 'Location (address / city) *',
+    keyreq_geo: 'Geo coordinates (optional)',
+    keyreq_required: 'Please fill in required fields',
+    keyreq_submit: 'Submit',
+    keyreq_info: 'After submission an admin reviews your request and activates your account. You will receive a personal key.',
+    keyreq_sent: 'Request sent — you will be notified once activated',
+    contact_title: 'Contact & Location',
+    contact_phone: 'Mobile number',
+    contact_location: 'Location (address / city)',
+    contact_geo: 'Geo coordinates (lat,lng)',
+    contact_geo_hint: 'Browser asks for GPS permission. Optional, used for the admin map.',
+    contact_save: 'Save',
+    contact_saved: 'Contact saved',
+    use_current: '📍 Current',
+    saved: 'Saved',
+    deleted: 'Deleted',
+    yes: 'Yes',
+    no: 'No',
+    cancel: 'Cancel',
+  },
+};
+
+function getLang(){
+  const fromProfile = STATE.myProfile?.fields?.language;
+  if(fromProfile && I18N[fromProfile]) return fromProfile;
+  const fromStorage = localStorage.getItem('app_lang');
+  if(fromStorage && I18N[fromStorage]) return fromStorage;
+  return 'de';
+}
+function t(key){
+  const lang = getLang();
+  return (I18N[lang] && I18N[lang][key]) || I18N.de[key] || key;
+}
+function setLangPref(code){
+  if(!I18N[code]) return;
+  localStorage.setItem('app_lang', code);
+  if(STATE.myProfile){ setMyLanguage(code); }
+  // Login-Screen neu rendern wenn dort
+  if(document.getElementById('view-login')?.classList.contains('active')){ renderLoginScreen(); }
+}
+
+function renderLoginScreen(){
+  const root = document.getElementById('loginContent');
+  if(!root) return;
+  const lang = getLang();
+  const opt = (code,label) => '<button type="button" class="lang-pill'+(lang===code?' active':'')+'" onclick="setLangPref(\''+code+'\')">'+label+'</button>';
+  root.innerHTML =
+    '<div class="login-lang-toggle">'+opt('de','DE')+opt('en','EN')+'</div>'
+    + '<div class="welcome-eyebrow">'+t('login_eyebrow')+'</div>'
+    + '<div class="welcome-title">'+t('login_title')+'</div>'
+    + '<div class="welcome-text">'+t('login_intro')+'</div>'
+    + '<div class="input-block">'
+    +   '<label class="input-label" for="loginKey">'+t('login_key_label')+'</label>'
+    +   '<input type="text" class="text-input" id="loginKey" placeholder="z.B. mw-7f3k-9q2l" autocomplete="off" spellcheck="false">'
+    +   '<div class="error-msg" id="loginError"></div>'
+    + '</div>'
+    + '<button class="action-button primary" id="loginBtn" onclick="doLogin()">'+t('login_btn')+'</button>'
+    + '<div style="text-align:center;margin-top:18px"><button onclick="openKeyRequest()" style="background:transparent;border:none;color:var(--accent);font-family:\'JetBrains Mono\',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.12em;cursor:pointer;padding:8px 12px">'+t('login_key_request')+'</button></div>';
+}
+
 function myLang(){
-  return STATE.myProfile?.fields?.language || 'de';
+  return getLang();
 }
 
 async function setMyLanguage(lang){
@@ -4261,6 +4618,7 @@ function closeModal(id){ document.getElementById(id).classList.remove('active');
 function showView(id){
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById('view-'+id).classList.add('active');
+  if(id === 'login') renderLoginScreen();
 }
 
 // ============================================================
