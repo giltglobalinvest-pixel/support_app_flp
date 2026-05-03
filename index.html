@@ -751,7 +751,7 @@ window.fetch = async function(input, init){
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v1.9.8';
+const APP_VERSION = 'v1.9.9';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -2612,6 +2612,7 @@ function openSettings(){
     <div class="settings-row"><div class="settings-label">Expertise ändern</div><button class="settings-action" onclick="reopenOnboarding()">Bearbeiten</button></div>
     <div class="settings-row"><div><div class="settings-label">Wissensbasis</div><div class="settings-value" style="margin-top:3px">PDFs hochladen · KI-Analyse</div></div><button class="settings-action" onclick="closeModal('settingsModal');openWissenModal()">Öffnen</button></div>
     ${isAdmin() ? '<div class="settings-row"><div><div class="settings-label">Katalog verwalten</div><div class="settings-value" style="margin-top:3px">Modelle · Steuerungen · FU · Komponenten</div></div><button class="settings-action" onclick="closeModal(\'settingsModal\');openKatalogModal()">Öffnen</button></div>' : ''}
+    <div class="settings-row"><div><div class="settings-label">Update erzwingen</div><div class="settings-value" style="margin-top:3px">Cache leeren + neu laden</div></div><button class="settings-action" onclick="forceHardReload()">Aktualisieren</button></div>
     <div class="settings-row"><div class="settings-label">Logout</div><button class="settings-action danger" onclick="logout()">Abmelden</button></div>
     <div class="settings-row"><div class="settings-label">Version</div><div class="settings-value">${APP_VERSION}</div></div>
   `;
@@ -2621,6 +2622,25 @@ function reopenOnboarding(){
   closeModal('settingsModal');
   showView('onboard');
   onboardInit();
+}
+
+async function forceHardReload(){
+  try {
+    // Schema-Migrations-Cache löschen
+    Object.keys(localStorage).filter(k => k.startsWith('schema_migrated_')).forEach(k => localStorage.removeItem(k));
+    Object.keys(sessionStorage).filter(k => k.startsWith('force_reload_')).forEach(k => sessionStorage.removeItem(k));
+    // Service-Worker Caches falls vorhanden
+    if(window.caches && caches.keys){
+      const names = await caches.keys();
+      await Promise.all(names.map(n => caches.delete(n)));
+    }
+  } catch(e){}
+  // URL mit hartem Cache-Bust (timestamp + random) — neue URL = neue Request
+  const url = new URL(location.href);
+  url.searchParams.set('_v', APP_VERSION);
+  url.searchParams.set('_t', Date.now());
+  url.searchParams.set('_r', Math.random().toString(36).slice(2));
+  location.replace(url.toString());
 }
 
 // ============================================================
@@ -2993,16 +3013,44 @@ async function checkForLatestVersion(){
 // ============================================================
 document.getElementById('versionTag').textContent = APP_VERSION;
 
-// Debug-Panel default ON für Diagnose (X-Button schliesst dauerhaft)
 if(localStorage.getItem('debug_on') !== '0'){
   const dp = document.getElementById('debugPanel');
   if(dp) dp.style.display = 'block';
 }
 debugLog('script geladen', 'ok');
 
+// SOFORT vor allem anderen: Version-Check. Wenn neuere Version online → hart reloaden.
+async function preInitVersionCheck(){
+  try {
+    const ctrl = new AbortController();
+    const timeoutId = setTimeout(()=>ctrl.abort(), 3000);
+    const res = await fetch('https://raw.githubusercontent.com/giltglobalinvest-pixel/support_app_flp/main/index.html?_=' + Date.now() + '_' + Math.random().toString(36).slice(2), { cache: 'no-store', signal: ctrl.signal });
+    clearTimeout(timeoutId);
+    if(!res.ok) return false;
+    const text = await res.text();
+    const match = text.match(/APP_VERSION = '(v[\d.]+)'/);
+    const latest = match && match[1];
+    if(!latest || latest === APP_VERSION) return false;
+    const reloadKey = 'force_reload_' + latest;
+    if(sessionStorage.getItem(reloadKey)) return false;
+    sessionStorage.setItem(reloadKey, '1');
+    debugLog('OLD VERSION '+APP_VERSION+' → '+latest+' — HARD RELOAD', 'warn');
+    Object.keys(localStorage).filter(k => k.startsWith('schema_migrated_')).forEach(k => localStorage.removeItem(k));
+    if(window.caches?.keys){ const names = await caches.keys(); await Promise.all(names.map(n => caches.delete(n))); }
+    const url = new URL(location.href);
+    url.searchParams.set('_v', latest);
+    url.searchParams.set('_t', Date.now());
+    location.replace(url.toString());
+    return true;
+  } catch(e){ return false; }
+}
+
 (async function init(){
   debugLog('init() start', 'ok');
   setLoadingLabel('App startet', APP_VERSION);
+  // Version-Check SOFORT — bei alter Version reload, init bricht ab
+  const reloading = await preInitVersionCheck();
+  if(reloading) return;
   setLoadingLabel('Login wird geprüft', '');
   let ok = false;
   try { ok = await tryAutoLogin(); debugLog('tryAutoLogin → '+ok, 'ok'); }
@@ -3014,7 +3062,6 @@ debugLog('script geladen', 'ok');
     showView('login');
     debugLog('login-screen shown', 'ok');
   }
-  setTimeout(()=>{ debugLog('checkForLatestVersion start', 'ok'); checkForLatestVersion(); }, 3000);
   debugLog('init() done', 'ok');
 })();
 </script>
