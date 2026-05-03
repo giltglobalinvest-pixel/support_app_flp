@@ -153,8 +153,16 @@ button{cursor:pointer;border:none;background:none}
 
 .tech{
   position:absolute;display:flex;flex-direction:column;align-items:center;
-  transform:translate(-50%,-50%);text-align:center;cursor:pointer;
-  transition:opacity .25s,transform .2s;background:none;padding:0;
+  text-align:center;cursor:pointer;background:none;padding:0;
+  --drift-x:0px; --drift-y:0px; --drift-dur:24s;
+  transform:translate(-50%,-50%);
+  animation:techDrift var(--drift-dur) ease-in-out infinite alternate;
+  transition:opacity .25s;
+}
+@keyframes techDrift{
+  0%{transform:translate(-50%,-50%)}
+  50%{transform:translate(calc(-50% + var(--drift-x)), calc(-50% + var(--drift-y)))}
+  100%{transform:translate(calc(-50% - var(--drift-x)*0.6), calc(-50% - var(--drift-y)*0.6))}
 }
 .tech:active .tech-avatar{transform:scale(.95)}
 .tech.hidden-tech{opacity:.12;pointer-events:none}
@@ -229,6 +237,11 @@ button{cursor:pointer;border:none;background:none}
 .badge{font-family:'JetBrains Mono',monospace;font-size:8.5px;text-transform:uppercase;letter-spacing:.08em;padding:2px 6px;border-radius:3px;background:var(--surface);color:var(--text-dim);font-weight:600}
 .badge.resolved{background:rgba(52,211,153,.10);color:var(--online)}
 .badge.live{background:rgba(56,189,248,.10);color:var(--accent)}
+.badge.unread{background:var(--danger);color:#fff;font-weight:700;animation:pulse 1.8s ease-in-out infinite}
+.chat-row.unread{background:rgba(56,189,248,.04)}
+.chat-row.unread .title{color:var(--accent)}
+.chat-row .unread-dot{position:absolute;top:14px;right:14px;width:10px;height:10px;background:var(--danger);border-radius:50%;box-shadow:0 0 8px var(--danger)}
+.chat-row{position:relative}
 
 .chats-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;text-align:center;color:var(--text-dim);font-size:13.5px;line-height:1.5}
 .chats-empty .icon{font-size:32px;margin-bottom:14px;opacity:.4}
@@ -784,7 +797,7 @@ window.fetch = async function(input, init){
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.0';
+const APP_VERSION = 'v2.0.1';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -1712,10 +1725,16 @@ function renderConstellation(){
     if(!online && matches) el.classList.add('dim');
     if(STATE.selected.has(p.id)) el.classList.add('selected');
 
-    // Position: deterministisch über api_key Hash → schöne organische Verteilung
-    const pos = hashPos(p.fields.api_key || p.id, idx);
+    // Position: deterministisch + Kollisions-Vermeidung über bisherige Positionen
+    const pos = hashPosNonOverlapping(p.fields.api_key || p.id, idx, others);
     el.style.left = pos.x + '%';
     el.style.top = pos.y + '%';
+    // Drift: jeder Tech bewegt sich langsam in eigene Richtung (deterministisch via Hash)
+    const drift = hashDrift(p.fields.api_key || p.id, idx);
+    el.style.setProperty('--drift-x', drift.dx + 'px');
+    el.style.setProperty('--drift-y', drift.dy + 'px');
+    el.style.setProperty('--drift-dur', drift.dur + 's');
+    el.style.animationDelay = drift.delay + 's';
 
     // Größe: online + match → groß; nur match → mittel; sonst klein
     let size = 38;
@@ -1756,6 +1775,47 @@ function hashPos(key, idx){
   const x = 18 + (seedX % 1) * 64; // 18-82%
   const y = 15 + (seedY % 1) * 70; // 15-85%
   return { x, y };
+}
+
+// Drift-Werte pro Tech (langsame, individuelle Bewegung)
+function hashDrift(key, idx){
+  let h = 0;
+  for(let i=0;i<key.length;i++) h = ((h<<5)-h+key.charCodeAt(i))|0;
+  h += idx * 13;
+  const dx = Math.round(((Math.sin(h*1.7) + 1) / 2 - 0.5) * 24); // ±12px
+  const dy = Math.round(((Math.sin(h*2.3) + 1) / 2 - 0.5) * 24);
+  const dur = 18 + Math.abs(Math.round((Math.sin(h*3.1) + 1) * 6)); // 18-30s
+  const delay = Math.round((Math.sin(h*4.7) + 1) * 5); // 0-10s
+  return { dx, dy, dur, delay };
+}
+
+// Position mit Kollisions-Vermeidung (probiert bis 8 Mal eine Position die mind. 18% Distanz zu allen anderen hat)
+const _placedPositions = new WeakMap();
+function hashPosNonOverlapping(key, idx, allOthers){
+  if(_placedPositions.has(allOthers)){
+    const cache = _placedPositions.get(allOthers);
+    if(cache[key]) return cache[key];
+  } else {
+    _placedPositions.set(allOthers, {});
+  }
+  const cache = _placedPositions.get(allOthers);
+  const placed = Object.values(cache);
+  const minDistSq = 18 * 18; // mindestens 18 Prozent-Punkte Distanz
+  let best = hashPos(key, idx);
+  let bestMinSq = -1;
+  for(let attempt = 0; attempt < 12; attempt++){
+    const variant = hashPos(key + '_' + attempt, idx + attempt * 7);
+    let nearest = Infinity;
+    placed.forEach(p => {
+      const ddx = p.x - variant.x; const ddy = p.y - variant.y;
+      const d = ddx*ddx + ddy*ddy;
+      if(d < nearest) nearest = d;
+    });
+    if(nearest >= minDistSq){ best = variant; break; }
+    if(nearest > bestMinSq){ bestMinSq = nearest; best = variant; }
+  }
+  cache[key] = best;
+  return best;
 }
 
 function handleTechTap(profile){
@@ -2030,8 +2090,11 @@ async function confirmPreChat(){
 async function openChat(chatRecord){
   STATE.currentChat = chatRecord;
   // Unread-Markierung entfernen
-  UNREAD_CHATS.delete(chatRecord.fields.chat_id);
-  LAST_KNOWN_MSG_AT[chatRecord.fields.chat_id] = chatRecord.fields.last_msg_at || new Date().toISOString();
+  const cid = chatRecord.fields.chat_id;
+  UNREAD_CHATS.delete(cid);
+  const nowIso = new Date().toISOString();
+  LAST_KNOWN_MSG_AT[cid] = chatRecord.fields.last_msg_at || nowIso;
+  localStorage.setItem('chat_viewed_'+cid, chatRecord.fields.last_msg_at || nowIso);
   updateChatsTabBadge();
   showView('chat');
   document.getElementById('chatTitle').innerHTML = esc(chatRecord.fields.title || '');
@@ -2729,6 +2792,18 @@ function switchTab(tab){
     catch(e){ debugLog('renderChatsList ERR: '+e.message, 'err'); }
   }
 }
+function isChatUnread(c){
+  const cid = c.fields.chat_id;
+  const lastMsg = c.fields.last_msg_at || '';
+  if(!lastMsg) return false;
+  if(STATE.currentChat?.fields?.chat_id === cid) return false; // aktiver Chat = gelesen
+  const lastViewed = localStorage.getItem('chat_viewed_'+cid) || '';
+  // Plus: Sender war ich selbst → nicht als unread markieren
+  if(lastMsg <= lastViewed) return false;
+  if((c.fields.last_msg || '').startsWith(APP_KEYS.user.name+':')) return false;
+  return true;
+}
+
 function setChatsFilter(filter){
   STATE.chatsFilter = filter;
   ['aktiv','resolved','alle'].forEach(f => {
@@ -2756,8 +2831,11 @@ function renderChatsList(){
     const f = c.fields;
     const time = f.last_msg_at ? new Date(f.last_msg_at).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}) : '';
     const initials = (f.title || '??').slice(0,2).toUpperCase();
-    const badges = f.status === 'resolved' ? '<span class="badge resolved">Gelöst</span>' : '<span class="badge live">Aktiv</span>';
-    html += '<div class="chat-row" onclick="openChatById(\''+c.id+'\')">';
+    const unread = isChatUnread(c);
+    let badges = f.status === 'resolved' ? '<span class="badge resolved">Gelöst</span>' : '<span class="badge live">Aktiv</span>';
+    if(unread) badges = '<span class="badge unread">Neue Antwort</span>' + badges;
+    html += '<div class="chat-row '+(unread?'unread':'')+'" onclick="openChatById(\''+c.id+'\')">';
+    if(unread) html += '<div class="unread-dot"></div>';
     html += '<div class="icon-circle">'+esc(initials)+'</div>';
     html += '<div class="body"><div class="title-row"><div class="title">'+esc(f.title||'Chat')+'</div><div class="time">'+time+'</div></div>';
     html += '<div class="preview">'+esc(f.last_msg||'—')+'</div>';
