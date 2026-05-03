@@ -681,6 +681,27 @@ function toggleDebug(){
   panel.style.display = v ? 'none' : 'block';
   localStorage.setItem('debug_on', v ? '0' : '1');
 }
+// Fetch-Wrapper — jede Anfrage mit Dauer + URL loggen
+const _origFetch = window.fetch.bind(window);
+window.fetch = async function(input, init){
+  const url = typeof input === 'string' ? input : input.url;
+  const method = (init && init.method) || 'GET';
+  // URL kürzen für Log
+  let short = url.replace('https://api.airtable.com/v0/', 'AT:').replace('https://content.airtable.com/v0/', 'ATc:').replace('https://api.anthropic.com/', 'AN:').replace('https://api.openai.com/', 'OAI:').replace('https://raw.githubusercontent.com/', 'GH:');
+  if(short.length > 60) short = short.slice(0,57)+'...';
+  const t0 = performance.now();
+  try {
+    const res = await _origFetch(input, init);
+    const dt = Math.round(performance.now() - t0);
+    debugLog(method+' '+dt+'ms '+(res.ok?'':res.status+' ')+short, res.ok ? 'ok' : 'warn');
+    return res;
+  } catch(e){
+    const dt = Math.round(performance.now() - t0);
+    debugLog(method+' '+dt+'ms ERR '+short, 'err');
+    throw e;
+  }
+};
+
 // Touch-Tracking — sehen ob Taps überhaupt ankommen + Koordinaten
 ['pointerdown','click'].forEach(ev => {
   document.addEventListener(ev, e => {
@@ -695,7 +716,7 @@ function toggleDebug(){
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v1.9';
+const APP_VERSION = 'v1.9.1';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -955,9 +976,12 @@ async function afterLogin(){
 }
 
 async function ensureAllTables(){
-  // Cache: Migration nur EINMAL pro App-Version. Spart 10-20 Meta-API-Calls bei jedem Start.
   const migKey = 'schema_migrated_' + APP_VERSION;
-  if(localStorage.getItem(migKey) === '1') return;
+  if(localStorage.getItem(migKey) === '1'){
+    debugLog('schema cache HIT (skip ~20 calls)', 'ok');
+    return;
+  }
+  debugLog('schema cache MISS — running migration', 'warn');
   await ensureTable('TechnikerProfile', [
     { name:'api_key', type:'singleLineText' },
     { name:'name', type:'singleLineText' },
@@ -1166,10 +1190,10 @@ async function afterOnboarding(){
   setLoadingLabel('Fertig', '');
   debugLog('showView(home) start');
   showView('home');
-  debugLog('renderHome start');
+  const r0 = performance.now();
   renderHome();
-  debugLog('renderHome done — INTERAKTIV');
-  setTimeout(()=>{ debugLog('loadHomeDataDeferred start'); loadHomeDataDeferred(); }, 50);
+  debugLog('renderHome '+Math.round(performance.now()-r0)+'ms — INTERAKTIV ✓');
+  setTimeout(()=>{ debugLog('loadHomeDataDeferred start (background)'); loadHomeDataDeferred().then(()=>debugLog('FULLY READY ✓✓')); }, 50);
   if(window._hbInterval) clearInterval(window._hbInterval);
   window._hbInterval = setInterval(()=>{
     if(STATE.myProfile) atUpdate('TechnikerProfile', STATE.myProfile.id, { last_seen: new Date().toISOString() }).catch(()=>{});
@@ -2904,8 +2928,8 @@ async function checkForLatestVersion(){
 // ============================================================
 document.getElementById('versionTag').textContent = APP_VERSION;
 
-// Debug-Panel nur zeigen wenn explizit aktiviert (localStorage.setItem('debug_on','1') in Konsole)
-if(localStorage.getItem('debug_on') === '1'){
+// Debug-Panel default ON für Diagnose (X-Button schliesst dauerhaft)
+if(localStorage.getItem('debug_on') !== '0'){
   const dp = document.getElementById('debugPanel');
   if(dp) dp.style.display = 'block';
 }
