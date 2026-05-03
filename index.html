@@ -275,6 +275,11 @@ button{cursor:pointer;border:none;background:none}
 .msg-bubble.ai .msg-author{color:var(--ai)}
 .msg-time{font-family:'JetBrains Mono',monospace;font-size:8.5px;color:var(--text-very-dim);text-transform:uppercase;letter-spacing:.08em;margin-top:5px}
 .msg-text{white-space:pre-wrap}
+.msg-trans-badge{margin-top:6px;font-family:'JetBrains Mono',monospace;font-size:8.5px;color:var(--text-very-dim);text-transform:uppercase;letter-spacing:.08em;cursor:pointer;border-top:1px dashed rgba(255,255,255,.06);padding-top:5px;line-height:1.3}
+.msg-row.own .msg-trans-badge{color:rgba(10,20,40,.55);border-top-color:rgba(10,20,40,.15)}
+.msg-trans-badge.translating{opacity:.6;animation:transblink 1.2s ease-in-out infinite}
+@keyframes transblink{0%,100%{opacity:.4}50%{opacity:.8}}
+
 .typing{display:flex;gap:4px;padding:12px 14px;background:var(--ai-glow);border:1px solid rgba(192,132,252,.35);border-radius:14px;border-bottom-left-radius:3px;width:fit-content}
 .typing span{width:7px;height:7px;background:var(--ai);border-radius:50%;animation:typing 1.4s infinite}
 .typing span:nth-child(2){animation-delay:.15s}
@@ -507,7 +512,7 @@ button{cursor:pointer;border:none;background:none}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v1.3.9';
+const APP_VERSION = 'v1.4';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -615,6 +620,27 @@ async function ensureTable(tableName, fields){
   return await createRes.json();
 }
 
+// FELD ZU EXISTIERENDER TABELLE HINZUFÜGEN (idempotent)
+async function ensureField(tableName, fieldName, type){
+  if(!APP_KEYS.airtableWriteKey) return;
+  try {
+    const metaRes = await fetch(
+      'https://api.airtable.com/v0/meta/bases/' + APP_CONFIG.APP_BASE_ID + '/tables',
+      { headers: { 'Authorization':'Bearer '+APP_KEYS.airtableWriteKey } }
+    );
+    const meta = await metaRes.json();
+    const table = (meta.tables || []).find(t => t.name === tableName);
+    if(!table) return;
+    if((table.fields || []).find(f => f.name === fieldName)) return;
+    await fetch(
+      'https://api.airtable.com/v0/meta/bases/' + APP_CONFIG.APP_BASE_ID + '/tables/' + table.id + '/fields',
+      { method:'POST',
+        headers:{'Authorization':'Bearer '+APP_KEYS.airtableWriteKey,'Content-Type':'application/json'},
+        body: JSON.stringify({ name: fieldName, type }) }
+    );
+  } catch(e){ /* still works */ }
+}
+
 // ============================================================
 // LOGIN
 // ============================================================
@@ -717,7 +743,9 @@ async function ensureAllTables(){
     { name:'components', type:'multilineText' },
     { name:'last_seen', type:'singleLineText' },
     { name:'onboarding_done', type:'checkbox', options:{ icon:'check', color:'greenBright' } },
+    { name:'language', type:'singleLineText' },
   ]);
+  await ensureField('TechnikerProfile', 'language', 'singleLineText');
   await ensureTable('Chats', [
     { name:'chat_id', type:'singleLineText' },
     { name:'title', type:'singleLineText' },
@@ -736,7 +764,11 @@ async function ensureAllTables(){
     { name:'msg_type', type:'singleLineText' },
     { name:'content', type:'multilineText' },
     { name:'created', type:'singleLineText' },
+    { name:'lang', type:'singleLineText' },
+    { name:'translations', type:'multilineText' },
   ]);
+  await ensureField('Messages', 'lang', 'singleLineText');
+  await ensureField('Messages', 'translations', 'multilineText');
   await ensureTable('Katalog', [
     { name:'name', type:'singleLineText' },
     { name:'meta', type:'singleLineText' },
@@ -778,6 +810,70 @@ function applyKatalog(){
 function isAdmin(){
   const r = ((APP_KEYS.user?.role || '') + '').trim().toLowerCase();
   return r === 'admin' || r.includes('admin');
+}
+
+// ============================================================
+// SPRACHE & ÜBERSETZUNG
+// ============================================================
+const LANGUAGES = [
+  { code:'de', label:'Deutsch' },
+  { code:'en', label:'English' },
+];
+const LANG_NAMES = { de:'Deutsch', en:'English' };
+
+function myLang(){
+  return STATE.myProfile?.fields?.language || 'de';
+}
+
+async function setMyLanguage(lang){
+  if(!STATE.myProfile) return;
+  await atUpdate('TechnikerProfile', STATE.myProfile.id, { language: lang });
+  STATE.myProfile.fields.language = lang;
+  toast('Sprache: ' + (LANG_NAMES[lang] || lang), 'success');
+  if(STATE.activeTab) renderUserBar();
+  if(STATE.currentChat){ renderMessages(); }
+}
+
+async function translateText(text, fromLang, toLang){
+  if(!APP_KEYS.anthropicKey) throw new Error('Kein Anthropic-Key');
+  if(fromLang === toLang) return text;
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST',
+    headers:{
+      'x-api-key': APP_KEYS.anthropicKey,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true',
+      'Content-Type':'application/json'
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 600,
+      system: 'Du bist ein Übersetzer für technische Aufzugs-Service-Chats. Übersetze den User-Text präzise von '+(LANG_NAMES[fromLang]||fromLang)+' nach '+(LANG_NAMES[toLang]||toLang)+'. Behalte Fachbegriffe (Modellnamen, Fehlercodes) bei. Gib NUR den übersetzten Text zurück, ohne Anführungszeichen, Erklärungen oder Vor-/Nachsätze.',
+      messages: [{ role:'user', content: text }]
+    })
+  });
+  if(!res.ok){ const e = await res.json().catch(()=>({})); throw new Error(e.error?.message || 'Übersetzung fehlgeschlagen'); }
+  const data = await res.json();
+  return data.content?.[0]?.text?.trim() || text;
+}
+
+// Übersetzt Message in Ziel-Sprache und cached in Airtable. Liefert übersetzten Text + Original-Lang.
+async function ensureTranslation(message, targetLang){
+  const f = message.fields;
+  const sourceLang = f.lang || 'de';
+  if(sourceLang === targetLang) return { text: f.content, source: sourceLang, translated: false };
+  let translations = {};
+  try { translations = f.translations ? JSON.parse(f.translations) : {}; } catch(e){}
+  if(translations[targetLang]) return { text: translations[targetLang], source: sourceLang, translated: true };
+  // Translate via Haiku
+  const translated = await translateText(f.content || '', sourceLang, targetLang);
+  translations[targetLang] = translated;
+  // Save back
+  try {
+    await atUpdate('Messages', message.id, { translations: JSON.stringify(translations) });
+    message.fields.translations = JSON.stringify(translations);
+  } catch(e){ /* cache best-effort */ }
+  return { text: translated, source: sourceLang, translated: true };
 }
 
 async function loadOrCreateMyProfile(){
@@ -1357,6 +1453,7 @@ async function loadMessages(){
 
 function renderMessages(){
   const body = document.getElementById('chatBody');
+  const targetLang = myLang();
   let html = '';
   STATE.currentMessages.forEach((m,i) => {
     const f = m.fields;
@@ -1368,17 +1465,61 @@ function renderMessages(){
       return;
     }
     const time = f.created ? new Date(f.created).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}) : '';
+    const sourceLang = (f.lang || 'de').toLowerCase();
+    const needsTranslation = sourceLang !== targetLang;
+    let cached = '';
+    if(needsTranslation){
+      try { const tr = JSON.parse(f.translations || '{}'); cached = tr[targetLang] || ''; } catch(e){}
+    }
+    let displayText = needsTranslation ? (cached || f.content || '') : (f.content || '');
+    let badgeHtml = '';
+    if(needsTranslation){
+      const stateAttr = cached ? 'trans' : 'translating';
+      const badgeText = cached
+        ? ('Übersetzt · '+sourceLang.toUpperCase()+'→'+targetLang.toUpperCase()+' · Tap für Original')
+        : 'Übersetzung läuft...';
+      badgeHtml = '<div class="msg-trans-badge'+(cached?'':' translating')+'" data-msg-id="'+m.id+'" data-source="'+sourceLang+'" data-target="'+targetLang+'" data-orig="'+esc(f.content||'')+'" data-trans="'+esc(cached)+'" data-state="'+stateAttr+'">'+badgeText+'</div>';
+    }
     if(isOwn){
-      html += '<div class="msg-row own"><div class="msg-bubble"><div class="msg-text">'+esc(f.content||'')+'</div><div class="msg-time" style="text-align:right">'+time+'</div></div></div>';
+      html += '<div class="msg-row own"><div class="msg-bubble"><div class="msg-text" data-msg-text="'+m.id+'">'+esc(displayText)+'</div>'+badgeHtml+'<div class="msg-time" style="text-align:right">'+time+'</div></div></div>';
     } else {
       const idx = (f.sender_key||'').charCodeAt(0) % 8;
       const cls = isAI ? 'ai' : 'av-'+(idx+1);
       const initials = isAI ? 'KI' : makeInitials(f.sender_name || f.sender_key);
-      html += '<div class="msg-row"><div class="mini-av '+cls+'">'+initials+'</div><div class="msg-bubble '+(isAI?'ai':'')+'"><div class="msg-author">'+esc(f.sender_name||'?')+'</div><div class="msg-text">'+esc(f.content||'')+'</div><div class="msg-time">'+time+'</div></div></div>';
+      html += '<div class="msg-row"><div class="mini-av '+cls+'">'+initials+'</div><div class="msg-bubble '+(isAI?'ai':'')+'"><div class="msg-author">'+esc(f.sender_name||'?')+'</div><div class="msg-text" data-msg-text="'+m.id+'">'+esc(displayText)+'</div>'+badgeHtml+'<div class="msg-time">'+time+'</div></div></div>';
     }
   });
   body.innerHTML = html;
   body.scrollTop = body.scrollHeight;
+
+  // Async: Übersetze Nachrichten ohne Cache
+  STATE.currentMessages.forEach(async m => {
+    const f = m.fields;
+    if(f.msg_type === 'system') return;
+    const sourceLang = (f.lang || 'de').toLowerCase();
+    if(sourceLang === targetLang) return;
+    let translations = {};
+    try { translations = JSON.parse(f.translations || '{}'); } catch(e){}
+    if(translations[targetLang]) return;
+    try {
+      const result = await ensureTranslation(m, targetLang);
+      const textEl = document.querySelector('[data-msg-text="'+m.id+'"]');
+      const badgeEl = document.querySelector('.msg-trans-badge[data-msg-id="'+m.id+'"]');
+      if(textEl) textEl.textContent = result.text;
+      if(badgeEl){
+        badgeEl.classList.remove('translating');
+        badgeEl.dataset.state = 'trans';
+        badgeEl.dataset.trans = result.text;
+        badgeEl.textContent = 'Übersetzt · '+sourceLang.toUpperCase()+'→'+targetLang.toUpperCase()+' · Tap für Original';
+      }
+    } catch(e){
+      const badgeEl = document.querySelector('.msg-trans-badge[data-msg-id="'+m.id+'"]');
+      if(badgeEl){
+        badgeEl.classList.remove('translating');
+        badgeEl.textContent = 'Übersetzung fehlgeschlagen';
+      }
+    }
+  });
 }
 
 async function sendChatMessage(){
@@ -1400,6 +1541,7 @@ async function sendChatMessage(){
       msg_type: 'text',
       content: txt,
       created,
+      lang: myLang(),
     });
     await atUpdate('Chats', STATE.currentChat.id, {
       last_msg: txt.slice(0, 100),
@@ -1441,7 +1583,8 @@ async function callAI(triggerText){
       return prefix + ': ' + (m.fields.content || '');
     }).join('\n');
 
-    const systemPrompt = `Du bist die FLP Supporter KI, ein technischer Assistent für Aufzugstechniker. Antworte präzise, kurz, im Techniker-Stil — kein Lehrbuch. Wenn du etwas nicht weißt, sag es ehrlich und frage nach. Strukturiere bei Bedarf mit kurzen Listen oder nummerierten Schritten. Antworte auf Deutsch.
+    const replyLang = LANG_NAMES[myLang()] || 'Deutsch';
+    const systemPrompt = `Du bist die FLP Supporter KI, ein technischer Assistent für Aufzugstechniker. Antworte präzise, kurz, im Techniker-Stil — kein Lehrbuch. Wenn du etwas nicht weißt, sag es ehrlich und frage nach. Strukturiere bei Bedarf mit kurzen Listen oder nummerierten Schritten. Antworte auf ${replyLang}.
 
 Chat-Titel: ${STATE.currentChat.fields.title || ''}
 Teilnehmer-Profile (Modelle/Steuerungen): siehe Chat-Verlauf.`;
@@ -1476,6 +1619,7 @@ Teilnehmer-Profile (Modelle/Steuerungen): siehe Chat-Verlauf.`;
       msg_type: 'ai',
       content: aiText,
       created,
+      lang: myLang(),
     });
     await atUpdate('Chats', STATE.currentChat.id, {
       last_msg: 'KI: ' + aiText.slice(0, 80),
@@ -1562,6 +1706,7 @@ function openSettings(){
     <div class="settings-row"><div class="settings-label">Modelle</div><div class="settings-value">${esc(parseList(p.models).join(', ') || '—')}</div></div>
     <div class="settings-row"><div class="settings-label">Steuerungen</div><div class="settings-value">${esc(parseList(p.controls).join(', ') || '—')}</div></div>
     <div class="settings-row"><div class="settings-label">Komponenten</div><div class="settings-value">${esc(parseList(p.components).join(', ') || '—')}</div></div>
+    <div class="settings-row"><div class="settings-label">Sprache</div><div style="display:flex;gap:6px">${LANGUAGES.map(l => '<button class="settings-action" style="'+(myLang()===l.code?'background:var(--accent);color:var(--on-accent);border-color:var(--accent)':'')+'" onclick="setMyLanguage(\''+l.code+'\').then(()=>openSettings())">'+l.label+'</button>').join('')}</div></div>
     <div class="settings-row"><div class="settings-label">Expertise ändern</div><button class="settings-action" onclick="reopenOnboarding()">Bearbeiten</button></div>
     ${isAdmin() ? '<div class="settings-row"><div><div class="settings-label">Katalog verwalten</div><div class="settings-value" style="margin-top:3px">Modelle · Steuerungen · Komponenten</div></div><button class="settings-action" onclick="openKatalogModal()">Öffnen</button></div>' : ''}
     <div class="settings-row"><div class="settings-label">Logout</div><button class="settings-action danger" onclick="logout()">Abmelden</button></div>
@@ -1722,6 +1867,25 @@ function toast(msg, type){
   document.body.appendChild(t);
   setTimeout(()=>{ t.style.opacity = '0'; t.style.transition = 'opacity .3s'; setTimeout(()=>t.remove(),300); }, 2800);
 }
+
+// Tap auf Übersetzungs-Badge togglet Original ↔ Übersetzung
+document.addEventListener('click', e => {
+  const badge = e.target.closest && e.target.closest('.msg-trans-badge');
+  if(!badge || badge.classList.contains('translating')) return;
+  const textEl = badge.parentElement.querySelector('[data-msg-text]');
+  if(!textEl) return;
+  const src = (badge.dataset.source || '').toUpperCase();
+  const tgt = (badge.dataset.target || '').toUpperCase();
+  if(badge.dataset.state === 'trans'){
+    textEl.textContent = badge.dataset.orig || '';
+    badge.dataset.state = 'orig';
+    badge.textContent = 'Original · '+src+' · Tap für Übersetzung';
+  } else {
+    textEl.textContent = badge.dataset.trans || '';
+    badge.dataset.state = 'trans';
+    badge.textContent = 'Übersetzt · '+src+'→'+tgt+' · Tap für Original';
+  }
+});
 
 // Auto-resize textarea
 document.addEventListener('input', e => {
