@@ -844,7 +844,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.9.9';
+const APP_VERSION = 'v2.9.10';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -5050,29 +5050,35 @@ async function analyzeWissenPdf(recordId, base64OrUrl){
         { type:'document', source:{ type:'base64', media_type:'application/pdf', data: base64 } },
         { type:'text', text: `Du extrahierst aus einem technischen Dokument für Aufzugstechniker (Service-Handbuch, Fehlercode-Liste, Schaltplan, Doku, etc.) eine ARBEITS-Wissensbasis in Deutsch.
 
-ABSOLUT WICHTIG — VOLLSTÄNDIGKEIT VOR KÜRZE:
+WICHTIGE UNTERSCHEIDUNG ZWISCHEN FAKTEN-DATEN UND BESCHREIBUNGSTEXT:
 
-1. **FEHLERCODES, FEHLERTABELLEN, ALARMLISTEN**: VOLLSTÄNDIG und 1:1 WÖRTLICH übernehmen. Jeden Code, jede Bedeutung, jede Behebung. KEINE "wichtigsten" filtern, KEINE Kürzungen, KEIN "etc." oder "...". Format: Markdown-Tabelle mit allen Spalten des Originals.
-2. **PARAMETER-LISTEN, KONFIGURATIONS-TABELLEN, ADRESSRÄUME, PIN-BELEGUNGEN, KLEMMENPLÄNE**: ebenfalls 1:1 wörtlich, vollständig, als Markdown-Tabelle.
-3. **TECHNISCHE GRENZWERTE, SCHALTSCHWELLEN, MESSWERTE**: exakt übernehmen mit Einheit.
-4. **PRÜFSCHRITTE, DIAGNOSE-PROZEDUREN**: vollständige Schrittfolge, nicht zusammengefasst.
+A) **Fakten-Daten** (Codes, Werte, Pins, Adressen, Klemmen) — diese MÜSSEN unverändert übernommen werden, weil sie für die Fehlersuche exakt stimmen müssen:
+- FEHLERCODES + Bezeichnung + zugehörige Werte/Bedeutungen → 1:1, vollständige Liste, keine Auswahl
+- PARAMETER-NUMMERN + Defaults + Wertebereiche → 1:1
+- PIN-BELEGUNGEN, KLEMMENPLÄNE, ADRESSRÄUME → 1:1
+- TECHNISCHE GRENZWERTE, SCHALTSCHWELLEN, MESSWERTE mit Einheit → exakt
+Format: Markdown-Tabelle mit allen Spalten des Originals.
 
-ZUSAMMENFASSUNG NUR FÜR:
+B) **Beschreibungstext und Anleitungen** (Erklärungen, Behebungs-Schritte, Symptom-Texte, Sicherheitshinweise) — diese in EIGENEN WORTEN umformulieren, nicht 1:1 aus der Doku abschreiben. Inhalt vollständig erhalten, aber Wortlaut neu — knapp und im Techniker-Stil.
+
+C) **Diagnose-Prozeduren / Prüfschritte** — vollständige Schrittfolge erhalten, aber jeder Schritt in eigenen Worten formuliert (nicht abgeschrieben).
+
+KURZE ZUSAMMENFASSUNG (eigene Worte) FÜR:
 - Was ist das für ein Dokument?
 - Welche Modelle/Geräte/Versionen werden behandelt?
-- Sicherheitshinweise (knapp)
+- Sicherheitshinweise (knapp, eigene Worte)
 
 GLIEDERUNG (Markdown):
 ## Dokumenttyp
 ## Behandelte Modelle/Versionen
 ## Sicherheitshinweise
-## Fehlercodes / Alarmtabellen (VOLLSTÄNDIG, 1:1)
-## Parameter / Konfiguration (VOLLSTÄNDIG, 1:1)
-## Diagnose-Prozeduren (vollständige Schrittfolgen)
-## Häufige Symptome → Lösungen
+## Fehlercodes / Alarmtabellen (Tabelle 1:1, vollständig)
+## Parameter / Konfiguration (Tabelle 1:1, vollständig)
+## Diagnose-Prozeduren (vollständige Schrittfolgen, eigene Worte)
+## Häufige Symptome → Lösungen (eigene Worte)
 ## Sonstiges
 
-Diese Wissensbasis wird im Feld zur Fehlersuche genutzt — wenn ein Techniker einen Fehlercode sucht, MUSS er ihn finden können. Antworte nur mit dem strukturierten Inhalt, ohne Vor-/Nachsätze.` }
+Diese Wissensbasis wird im Feld zur Fehlersuche genutzt — Codes/Werte müssen exakt stimmen, Beschreibungen sollen aber NICHT wörtlich aus dem Hersteller-Manual abgeschrieben sein. Antworte nur mit dem strukturierten Inhalt, ohne Vor-/Nachsätze.` }
       ]
     }]
   });
