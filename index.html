@@ -829,7 +829,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.9.4';
+const APP_VERSION = 'v2.9.5';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -4334,6 +4334,7 @@ function renderUserMgmt(){
   const body = document.getElementById('userMgmtBody');
   const profByKey = {};
   STATE.techProfiles.forEach(p => { profByKey[p.fields.api_key] = p; });
+  const myKey = APP_KEYS?.user?.api_key;
   // Filter anwenden
   const filtered = USER_MGMT_USERS.filter(u => {
     const p = profByKey[u.fields.api_key];
@@ -4346,7 +4347,9 @@ function renderUserMgmt(){
     if(USER_MGMT_FILTER === 'pending') return status === 'aktiv' && p?.fields?.onboarding_done !== true;
     return true;
   });
-  // Filter-Chips
+  // Add-User Button + Filter-Chips
+  let html = '<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="settings-action" style="padding:8px 14px;background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:700" onclick="showAddUserForm()">+ Neuer User</button></div>';
+  html += '<div id="addUserFormSlot"></div>';
   const filters = [
     { key:'alle', label:'Alle' },
     { key:'aktiv', label:'Aktiv' },
@@ -4355,7 +4358,7 @@ function renderUserMgmt(){
     { key:'onboarded', label:'Onboarded' },
     { key:'pending', label:'Pending Onboarding' },
   ];
-  let html = '<div class="user-mgmt-filter">';
+  html += '<div class="user-mgmt-filter">';
   filters.forEach(f => {
     html += '<button class="chip '+(USER_MGMT_FILTER===f.key?'selected':'')+'" onclick="setUserMgmtFilter(\''+f.key+'\')">'+f.label+'</button>';
   });
@@ -4382,18 +4385,121 @@ function renderUserMgmt(){
     const tokens = p?.fields?.tokens ?? 0;
     const points = p?.fields?.points ?? 0;
     const tier = tierFor(points);
+    const isSelf = f.api_key === myKey;
     html += '<div class="user-mgmt-row">';
     html += '<div class="status-dot '+dotCls+'" title="'+dotLabel+'"></div>';
     html += '<div class="info">';
-    html += '<div class="name">'+esc(f.name || f.api_key)+' <span class="role '+(role==='admin'?'admin':'')+'">'+(role==='admin'?'ADMIN':'USER')+'</span>'+(tier?' '+tier.icon:'')+'</div>';
+    html += '<div class="name">'+esc(f.name || f.api_key)+' <span class="role '+(role==='admin'?'admin':'')+'">'+(role==='admin'?'ADMIN':'USER')+'</span>'+(tier?' '+tier.icon:'')+(isSelf?' <span style="font-size:9px;color:var(--text-very-dim);margin-left:4px">(Du)</span>':'')+'</div>';
     html += '<div class="meta"><span>'+esc(f.api_key)+'</span><span>'+esc(skills)+'</span><span>'+esc(lastSeenStr)+'</span><span style="color:#fbbf24;font-weight:700">🪙 '+tokens+'</span><span style="color:var(--accent);font-weight:700">'+points+' Pkt</span></div>';
-    html += '</div>';
+    html += '<div style="display:flex;gap:5px;margin-top:6px;flex-wrap:wrap">';
     if(p){
-      html += '<button class="settings-action" style="padding:6px 10px;font-size:9px" onclick="grantTokensPrompt(\''+p.id+'\',\''+esc(f.name||f.api_key)+'\')">+ Tokens</button>';
+      html += '<button class="kat-btn" style="padding:4px 8px;font-size:9px" onclick="grantTokensPrompt(\''+p.id+'\',\''+esc(f.name||f.api_key).replace(/'/g,"\\'")+'\')">+ Tokens</button>';
     }
+    if(!isSelf){
+      const statusLabel = status === 'aktiv' ? '⏸ Deaktivieren' : '▶ Aktivieren';
+      html += '<button class="kat-btn" style="padding:4px 8px;font-size:9px" onclick="adminToggleUserStatus(\''+u.id+'\')">'+statusLabel+'</button>';
+      const roleLabel = role === 'admin' ? '↓ User' : '↑ Admin';
+      html += '<button class="kat-btn" style="padding:4px 8px;font-size:9px" onclick="adminToggleUserRole(\''+u.id+'\')">'+roleLabel+'</button>';
+      html += '<button class="kat-btn del" style="padding:4px 8px;font-size:9px" onclick="adminDeleteUser(\''+u.id+'\',\''+esc(f.name||f.api_key).replace(/'/g,"\\'")+'\')">× Löschen</button>';
+    }
+    html += '</div>';
+    html += '</div>';
     html += '</div>';
   });
   body.innerHTML = html;
+}
+
+// --- Admin User-Verwaltung Aktionen ---
+
+function showAddUserForm(){
+  const slot = document.getElementById('addUserFormSlot');
+  if(!slot) return;
+  if(slot.innerHTML.trim()){ slot.innerHTML = ''; return; } // Toggle
+  slot.innerHTML = `
+    <div style="background:rgba(84,183,255,.06);border:1px solid var(--accent);border-radius:8px;padding:12px;margin-bottom:14px">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:.12em;margin-bottom:10px">Neuer User</div>
+      <div class="input-block" style="margin-bottom:8px"><label class="input-label">Name *</label><input type="text" class="text-input" id="newUserName" placeholder="z.B. Max Mustermann"></div>
+      <div class="input-block" style="margin-bottom:8px"><label class="input-label">Rolle</label>
+        <select id="newUserRole" class="text-input">
+          <option value="user">User</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+      <div class="error-msg" id="newUserError"></div>
+      <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:8px">
+        <button class="kat-btn" onclick="document.getElementById('addUserFormSlot').innerHTML=''">Abbrechen</button>
+        <button class="kat-btn" style="background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:700" onclick="adminCreateUser()">User anlegen</button>
+      </div>
+    </div>`;
+}
+
+function generateUserKey(name){
+  // Slug aus Name + 6 random alphanumerisch — z.B. "max-7f3k9q"
+  const slug = (name || 'user').toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,16) || 'user';
+  const rand = Math.random().toString(36).slice(2, 8);
+  return slug + '-' + rand;
+}
+
+async function adminCreateUser(){
+  const errEl = document.getElementById('newUserError');
+  const nameEl = document.getElementById('newUserName');
+  const roleEl = document.getElementById('newUserRole');
+  errEl.textContent = '';
+  const name = (nameEl.value || '').trim();
+  const role = roleEl.value || 'user';
+  if(!name){ errEl.textContent = 'Name fehlt'; return; }
+  const apiKey = generateUserKey(name);
+  try {
+    await atWrite('User', { name, api_key: apiKey, role, status: 'aktiv' });
+    USER_MGMT_USERS = await atRead('User');
+    renderUserMgmt();
+    toast('User "'+name+'" angelegt — Key: '+apiKey, 'success');
+    // Key im Clipboard ablegen, falls möglich
+    try { navigator.clipboard?.writeText(apiKey); } catch(e){}
+  } catch(e){ errEl.textContent = e.message; }
+}
+
+async function adminToggleUserStatus(recordId){
+  const u = USER_MGMT_USERS.find(x => x.id === recordId);
+  if(!u) return;
+  const newStatus = (u.fields.status === 'aktiv') ? 'inaktiv' : 'aktiv';
+  try {
+    await atUpdate('User', recordId, { status: newStatus });
+    u.fields.status = newStatus;
+    await reloadActiveKeys();
+    renderUserMgmt();
+    if(STATE.activeTab === 'konstellation') renderConstellation();
+    toast('Status: '+newStatus, 'success');
+  } catch(e){ toast(e.message, 'error'); }
+}
+
+async function adminToggleUserRole(recordId){
+  const u = USER_MGMT_USERS.find(x => x.id === recordId);
+  if(!u) return;
+  const newRole = (u.fields.role === 'admin') ? 'user' : 'admin';
+  try {
+    await atUpdate('User', recordId, { role: newRole });
+    u.fields.role = newRole;
+    renderUserMgmt();
+    toast('Rolle: '+newRole, 'success');
+  } catch(e){ toast(e.message, 'error'); }
+}
+
+async function adminDeleteUser(recordId, userName){
+  if(!confirm('User "'+userName+'" wirklich PERMANENT löschen? Die zugehörigen Profile/Chats/Nachrichten bleiben in der Datenbank, aber der Login wird unmöglich.')) return;
+  if(!confirm('Sicher? Dies kann nicht rückgängig gemacht werden.')) return;
+  try {
+    const url = 'https://api.airtable.com/v0/' + APP_CONFIG.APP_BASE_ID + '/User/' + recordId;
+    const res = await fetch(url, { method:'DELETE', headers:{ 'Authorization':'Bearer '+APP_KEYS.airtableWriteKey } });
+    if(!res.ok) throw new Error('Löschen fehlgeschlagen');
+    USER_MGMT_USERS = USER_MGMT_USERS.filter(x => x.id !== recordId);
+    await reloadActiveKeys();
+    renderUserMgmt();
+    if(STATE.activeTab === 'konstellation') renderConstellation();
+    toast('User gelöscht', 'success');
+  } catch(e){ toast(e.message, 'error'); }
 }
 
 function setUserMgmtFilter(key){
