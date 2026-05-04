@@ -805,6 +805,21 @@ button{cursor:pointer;border:none;background:none}
   </div>
 </div>
 
+<!-- LEARN FROM RESOLVED CHAT MODAL -->
+<div class="modal" id="learnFromChatModal">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <div class="modal-title">Wissen übernehmen?</div>
+      <button class="modal-close" onclick="skipLearnFromChat()">×</button>
+    </div>
+    <div class="modal-body" id="learnFromChatBody"></div>
+    <div class="modal-footer" style="display:flex;gap:6px">
+      <button class="action-button" onclick="skipLearnFromChat()" style="flex:1">Nicht übernehmen</button>
+      <button class="action-button primary" onclick="confirmLearnFromChat()" style="flex:1">Übernehmen →</button>
+    </div>
+  </div>
+</div>
+
 <!-- PRE-CHAT KONTEXT MODAL -->
 <div class="modal" id="preChatModal">
   <div class="modal-sheet">
@@ -829,7 +844,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.9.7';
+const APP_VERSION = 'v2.9.8';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -3691,12 +3706,61 @@ async function resolveCurrentChat(){
     await loadMessages();
     document.getElementById('chatMetaText').textContent = t('chat_meta_solved');
     renderMessages();
-    // Im Hintergrund: Chat-Zusammenfassung in Wissensbasis
-    extractChatKnowledge(STATE.currentChat).catch(e => console.warn('Chat-Lernen failed:', e));
+    // User wird gefragt, in welche Wissensbasen der Chat übernommen werden soll (oder gar nicht)
+    openLearnFromChatModal(STATE.currentChat);
   } catch(e){ toast(e.message, 'error'); }
 }
 
-async function extractChatKnowledge(chat){
+// ---- Wissens-Übernahme nach gelöstem Chat ----
+let LEARN_FROM_CHAT = { chat: null, selected: [] }; // selected = [{category, name}]
+function openLearnFromChatModal(chat){
+  LEARN_FROM_CHAT.chat = chat;
+  // Default vorausgewählt: die Tags des Chats
+  let tags = [];
+  try { tags = JSON.parse(chat.fields.context_tags || '[]'); } catch(e){}
+  LEARN_FROM_CHAT.selected = tags.map(tg => ({ category: tg.category, name: tg.name }));
+  renderLearnFromChatModal();
+  openModal('learnFromChatModal');
+}
+function renderLearnFromChatModal(){
+  const body = document.getElementById('learnFromChatBody');
+  let html = '<div style="font-size:13px;color:var(--text-dim);margin-bottom:14px;line-height:1.4">In welche Wissensbasen soll der Chat-Verlauf übernommen werden? Mehrfachauswahl möglich. Wenn nichts ausgewählt → Eintrag landet unter <strong>„Allgemein"</strong>.</div>';
+  CATEGORIES.forEach(cat => {
+    const items = cat.getList();
+    if(!items.length) return;
+    html += '<div class="filter-group"><div class="filter-group-title">'+cat.plural+'</div><div class="chip-set">';
+    items.forEach(i => {
+      const sel = LEARN_FROM_CHAT.selected.some(s => s.category === cat.key && s.name === i.name);
+      html += '<button class="chip '+(sel?'selected':'')+'" onclick="toggleLearnTag(\''+cat.key+'\',\''+esc(i.name).replace(/'/g,"\\'")+'\')">'+esc(i.name)+'</button>';
+    });
+    html += '</div></div>';
+  });
+  body.innerHTML = html;
+}
+function toggleLearnTag(category, name){
+  const idx = LEARN_FROM_CHAT.selected.findIndex(s => s.category === category && s.name === name);
+  if(idx >= 0) LEARN_FROM_CHAT.selected.splice(idx, 1);
+  else LEARN_FROM_CHAT.selected.push({ category, name });
+  renderLearnFromChatModal();
+}
+async function confirmLearnFromChat(){
+  const chat = LEARN_FROM_CHAT.chat;
+  const tags = [...LEARN_FROM_CHAT.selected];
+  closeModal('learnFromChatModal');
+  LEARN_FROM_CHAT = { chat: null, selected: [] };
+  if(!chat) return;
+  toast('Wissen wird extrahiert...');
+  try {
+    await extractChatKnowledge(chat, tags);
+  } catch(e){ console.warn('extractChatKnowledge:', e); }
+}
+function skipLearnFromChat(){
+  closeModal('learnFromChatModal');
+  LEARN_FROM_CHAT = { chat: null, selected: [] };
+  toast('Chat NICHT in Wissensbasis übernommen', 'info');
+}
+
+async function extractChatKnowledge(chat, selectedTags){
   if(!APP_KEYS.anthropicKey) return;
   try {
     const msgs = STATE.currentMessages.filter(m => m.fields.msg_type !== 'system');
@@ -3705,8 +3769,13 @@ async function extractChatKnowledge(chat){
       const role = m.fields.sender_key === '__ai__' ? 'KI' : (m.fields.sender_name || 'Techniker');
       return role + ': ' + (m.fields.content || '');
     }).join('\n');
-    const tags = (() => { try { return JSON.parse(chat.fields.context_tags || '[]'); } catch(e){ return []; } })();
-    const tagInfo = tags.length ? tags.map(t => t.name).join(', ') : 'keine Tags';
+    // Wenn der User explizit Tags ausgewählt hat → diese nutzen.
+    // Sonst Fallback auf chat.context_tags. Sonst leer → wird unter "Allgemein" abgelegt.
+    let tags = Array.isArray(selectedTags) ? selectedTags : null;
+    if(tags === null){
+      try { tags = JSON.parse(chat.fields.context_tags || '[]'); } catch(e){ tags = []; }
+    }
+    const tagInfo = tags.length ? tags.map(t => t.name).join(', ') : 'keine Tags (Allgemein)';
     const sysPrompt = `Du extrahierst aus einem gelösten Service-Chat die Lehre für die Wissensbasis. Antworte als reine, klar strukturierte Zusammenfassung in Deutsch:
 
 PROBLEM: <kurz, ein Satz>
@@ -3714,7 +3783,7 @@ SYMPTOM: <Was hat der Techniker beobachtet?>
 URSACHE: <Falls bekannt>
 LÖSUNG: <Was hat geholfen? Schritte als Liste wenn sinnvoll>
 RELEVANTE FEHLERCODES/TEILE: <falls genannt>
-ANWENDBAR AUF: <Modelle/Steuerungen/Komponenten>
+ANWENDBAR AUF: <Modelle/Steuerungen>
 
 Wenn ein Punkt nicht aus dem Chat hervorgeht, schreibe "—". Maximal 400 Wörter.`;
     const userMsg = `Chat-Titel: ${chat.fields.title || ''}\nKontext-Tags: ${tagInfo}\n\nVerlauf:\n${transcript}`;
@@ -3728,18 +3797,27 @@ Wenn ein Punkt nicht aus dem Chat hervorgeht, schreibe "—". Maximal 400 Wörte
     logAiUsage('claude-sonnet-4-5-20250929', data.usage, 'chat-extract');
     const summary = data.content?.[0]?.text || '';
     if(!summary) return;
-    let category = 'component', itemName = chat.fields.title || 'Gelöster Fall';
-    if(tags.length){ category = tags[0].category; itemName = tags[0].name; }
-    await atWrite('Wissen', {
-      title: 'Gelöster Fall: ' + (chat.fields.title || 'Chat'),
-      category, item_name: itemName,
-      summary,
-      uploaded_by: APP_KEYS.user.name || APP_KEYS.user.api_key,
-      uploaded_at: new Date().toISOString(),
-      status: 'ready',
-    });
+    // Pro ausgewähltem Tag einen Wissens-Record schreiben, damit er beim jeweiligen Specialist auftaucht.
+    // Falls keine Tags ausgewählt → ein einziger "Allgemein"-Record.
+    const targets = tags.length ? tags : [{ category: 'model', name: 'Allgemein' }];
+    const baseTitle = 'Gelöster Fall: ' + (chat.fields.title || 'Chat');
+    for(const tg of targets){
+      try {
+        await atWrite('Wissen', {
+          title: baseTitle,
+          category: tg.category,
+          item_name: tg.name,
+          summary,
+          uploaded_by: APP_KEYS.user.name || APP_KEYS.user.api_key,
+          uploaded_at: new Date().toISOString(),
+          status: 'ready',
+        });
+      } catch(e){ console.warn('Wissen write failed for '+tg.name+':', e); }
+    }
     await loadWissen();
-    toast('Wissen aus Chat extrahiert ('+itemName+')', 'success');
+    if(STATE.activeTab === 'konstellation') { try { renderConstellation(); renderFilterStrip(); } catch(e){} }
+    const summary_label = targets.map(tg => tg.name).join(', ');
+    toast('Wissen extrahiert → '+summary_label, 'success');
   } catch(e){ console.warn('extractChatKnowledge:', e); }
 }
 
