@@ -829,7 +829,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.9.6';
+const APP_VERSION = 'v2.9.7';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -1176,6 +1176,11 @@ async function ensureAllTables(){
   await ensureField('Messages', 'lang', 'singleLineText');
   await ensureField('Messages', 'translations', 'multilineText');
   await ensureField('Messages', 'attachments', 'multipleAttachments');
+  // KI-Kosten direkt an der Nachricht — Admin sieht so pro Antwort, was sie kostete
+  await ensureField('Messages', 'cost_eur', 'number');
+  await ensureField('Messages', 'model', 'singleLineText');
+  await ensureField('Messages', 'tokens_in', 'number');
+  await ensureField('Messages', 'tokens_out', 'number');
   await ensureTable('Katalog', [
     { name:'name', type:'singleLineText' },
     { name:'meta', type:'singleLineText' },
@@ -3035,13 +3040,23 @@ function renderMessages(){
     const isVoice = f.msg_type === 'voice';
     const voicePrefix = isVoice && displayText ? '<div style="font-family:\'JetBrains Mono\',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:'+(isOwn?'rgba(10,20,40,.55)':'var(--text-very-dim)')+';margin-bottom:4px">'+t('voice_transcript_label')+'</div>' : '';
     const textBlock = displayText ? voicePrefix + '<div class="msg-text" data-msg-text="'+m.id+'">'+esc(displayText)+'</div>' : '';
+    // Admin-only: Cost-Footer pro KI-Antwort
+    let costFooter = '';
+    if(isAI && isAdmin() && (f.cost_eur != null || f.tokens_in != null)){
+      const eur = Number(f.cost_eur || 0);
+      const eurStr = eur < 0.01 ? '< 0.01 €' : eur.toFixed(4) + ' €';
+      const modelShort = (f.model || '').replace('claude-','').replace(/-\d{8}$/,'');
+      const inK = Math.round((f.tokens_in || 0)/100)/10;
+      const outK = Math.round((f.tokens_out || 0)/100)/10;
+      costFooter = '<div style="font-family:\'JetBrains Mono\',monospace;font-size:8.5px;color:var(--text-very-dim);margin-top:6px;padding-top:5px;border-top:1px dashed rgba(255,255,255,.08);letter-spacing:.04em">💰 '+eurStr+' · '+inK+'k in / '+outK+'k out · '+esc(modelShort||'?')+'</div>';
+    }
     if(isOwn){
       html += '<div class="msg-row own"><div class="msg-bubble">'+textBlock+attachHtml+badgeHtml+'<div class="msg-time" style="text-align:right">'+time+'</div></div></div>';
     } else {
       const idx = (f.sender_key||'').charCodeAt(0) % 8;
       const cls = isAI ? 'ai' : 'av-'+(idx+1);
       const initials = isAI ? 'KI' : makeInitials(f.sender_name || f.sender_key);
-      html += '<div class="msg-row"><div class="mini-av '+cls+'">'+initials+'</div><div class="msg-bubble '+(isAI?'ai':'')+'"><div class="msg-author">'+esc(f.sender_name||'?')+'</div>'+textBlock+attachHtml+badgeHtml+'<div class="msg-time">'+time+'</div></div></div>';
+      html += '<div class="msg-row"><div class="mini-av '+cls+'">'+initials+'</div><div class="msg-bubble '+(isAI?'ai':'')+'"><div class="msg-author">'+esc(f.sender_name||'?')+'</div>'+textBlock+attachHtml+badgeHtml+costFooter+'<div class="msg-time">'+time+'</div></div></div>';
     }
   });
   body.innerHTML = html;
@@ -3618,7 +3633,11 @@ Chat-Titel: ${STATE.currentChat.fields.title || ''}${availableSpecsHint}${knowle
     });
     const data = await res.json();
     if(!res.ok) throw new Error(data.error?.message || 'AI-Fehler '+res.status);
-    logAiUsage('claude-sonnet-4-5-20250929', data.usage, 'chat-ai');
+    const _model = 'claude-sonnet-4-5-20250929';
+    logAiUsage(_model, data.usage, 'chat-ai');
+    const _tokIn = data.usage?.input_tokens || 0;
+    const _tokOut = data.usage?.output_tokens || 0;
+    const _costEur = calcCostEur(_model, _tokIn, _tokOut);
     const aiText = data.content && data.content[0] ? data.content[0].text : '(keine Antwort)';
 
     const created = new Date().toISOString();
@@ -3634,6 +3653,10 @@ Chat-Titel: ${STATE.currentChat.fields.title || ''}${availableSpecsHint}${knowle
       content: aiText,
       created,
       lang: myLang(),
+      model: _model,
+      cost_eur: _costEur,
+      tokens_in: _tokIn,
+      tokens_out: _tokOut,
     });
     await atUpdate('Chats', STATE.currentChat.id, {
       last_msg: aiSenderName + ': ' + aiText.slice(0, 80),
@@ -4663,7 +4686,31 @@ function renderDashboard(users, allChats, allMessages, allWissen, allUsage){
       html += '<div class="dash-bar-row"><div class="lbl">'+esc(label)+'</div><div class="bar"><div class="fill" style="width:'+pct+'%"></div></div><div class="num">'+fmtEur(data.eur)+'</div></div>';
     });
   }
-  html += '<div style="margin-top:14px;padding:10px 12px;background:rgba(56,189,248,.05);border:1px solid rgba(56,189,248,.20);border-radius:6px;font-size:11px;color:var(--text-dim);line-height:1.5">💡 Berechnet aus Token-Usage: Sonnet 4.5 $3/$15, Haiku 4.5 $0.80/$4 pro 1M Tokens. USD→EUR ~'+USD_TO_EUR+'. Whisper-Audio-Kosten (~0.6¢/Min) werden nicht erfasst.</div>';
+  // Letzte 30 KI-Calls chronologisch — Wann ist welche Funktion gelaufen?
+  const recent = allUsage.slice().sort((a,b)=> (b.fields.timestamp||'').localeCompare(a.fields.timestamp||'')).slice(0, 30);
+  if(recent.length){
+    html += '<div class="dash-section-title">Letzte 30 Calls</div>';
+    html += '<div style="display:flex;flex-direction:column;gap:4px;font-family:\'JetBrains Mono\',monospace;font-size:10.5px">';
+    recent.forEach(r => {
+      const f = r.fields;
+      const ts = f.timestamp ? new Date(f.timestamp) : null;
+      const tsStr = ts ? ts.toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+      const eur = Number(f.cost_eur || 0);
+      const eurStr = eur < 0.0001 ? '<0.0001 €' : eur.toFixed(4) + ' €';
+      const mShort = (f.model||'').replace('claude-','').replace(/-\d{8}$/,'');
+      const inT = f.input_tokens || 0;
+      const outT = f.output_tokens || 0;
+      html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:rgba(255,255,255,.02);border-left:2px solid var(--accent);border-radius:3px">';
+      html += '<div style="color:var(--text-very-dim);font-size:9px;min-width:80px">'+tsStr+'</div>';
+      html += '<div style="flex:1;color:var(--text);font-weight:600">'+esc(f.purpose||'other')+'</div>';
+      html += '<div style="color:var(--ai);font-size:9.5px">'+esc(mShort||'?')+'</div>';
+      html += '<div style="color:var(--text-dim);min-width:80px;text-align:right;font-size:9.5px">'+inT+' / '+outT+' tok</div>';
+      html += '<div style="color:var(--accent);font-weight:700;min-width:75px;text-align:right">'+eurStr+'</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+  html += '<div style="margin-top:14px;padding:10px 12px;background:rgba(56,189,248,.05);border:1px solid rgba(56,189,248,.20);border-radius:6px;font-size:11px;color:var(--text-dim);line-height:1.5">💡 Berechnet aus Token-Usage: Sonnet 4.5 $3/$15, Haiku 4.5 $0.80/$4 pro 1M Tokens. USD→EUR ~'+USD_TO_EUR+'. Whisper-Audio-Kosten (~0.6¢/Min) werden nicht erfasst. Cost-Footer pro KI-Antwort sichtbar im Chat (nur für Admins).</div>';
   body.innerHTML = html;
 }
 
