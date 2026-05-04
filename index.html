@@ -844,7 +844,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.9.10';
+const APP_VERSION = 'v2.9.11';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -2310,6 +2310,24 @@ function relevantItems(items, category){
   return items.filter(i => itemIsRelevant(category, i.name));
 }
 
+// Anzahl READY-Wissens-Einträge für ein Item — Basis für AI-Specialist-Medaille
+function countKnowledge(category, name){
+  return (STATE.wissen || []).filter(w =>
+    w.fields.category === category &&
+    w.fields.item_name === name &&
+    (w.fields.status === 'ready' || !w.fields.status) &&
+    w.fields.summary
+  ).length;
+}
+// Medaillen-Tier für AI-Specialists basierend auf Wissens-Anzahl
+function aiTierForKnowledge(count){
+  if(count >= 15) return MEDALS.find(m => m.key === 'diamond');
+  if(count >= 7)  return MEDALS.find(m => m.key === 'gold');
+  if(count >= 3)  return MEDALS.find(m => m.key === 'silber');
+  if(count >= 1)  return MEDALS.find(m => m.key === 'bronze');
+  return null;
+}
+
 // Generiert dynamisch AI-Specialists aus Katalog + Wissensbasis.
 // Nur wenn es READY-Wissen für ein Item gibt, taucht der Specialist auf.
 // type: 'model' | 'control' | 'frequenzumrichter' (categories aus Wissensbasis)
@@ -2318,18 +2336,14 @@ function getAiSpecialists(){
   const out = [];
   const buildFor = (items, category, key) => {
     items.forEach((item, idx) => {
-      const hasKnowledge = STATE.wissen.some(w =>
-        w.fields.category === category &&
-        w.fields.item_name === item.name &&
-        (w.fields.status === 'ready' || !w.fields.status) &&
-        w.fields.summary
-      );
-      if(!hasKnowledge) return;
+      const knowledgeCount = countKnowledge(category, item.name);
+      if(knowledgeCount === 0) return;
       const id = 'ai_' + category + '_' + item.name.replace(/[^a-zA-Z0-9]+/g,'_');
       out.push({
         id,
         isAi: true,
         specialty: { category, value: item.name },
+        knowledgeCount,
         // Kompatibel mit profileMatches/render: stellt fields.api_key etc. bereit
         fields: {
           api_key: id,
@@ -2508,8 +2522,8 @@ function renderConstellation(){
         ? `<div class="tech-avatar" style="width:${size}px;height:${size}px;background-image:url(${esc(photo)});background-size:cover;background-position:center"></div>`
         : `<div class="tech-avatar ${avClass}" style="width:${size}px;height:${size}px;font-size:${Math.round(size*0.35)}px">${esc(initials)}</div>`;
     }
-    const techTier = isAiSpec ? null : tierFor(p.fields.points || 0);
-    const techMedal = techTier ? '<div class="medal-badge">'+techTier.icon+'</div>' : '';
+    const techTier = isAiSpec ? aiTierForKnowledge(p.knowledgeCount || 0) : tierFor(p.fields.points || 0);
+    const techMedal = techTier ? '<div class="medal-badge" title="'+esc(isAiSpec ? techTier.label+' · '+(p.knowledgeCount||0)+' Wissens-Einträge' : techTier.label)+'">'+techTier.icon+'</div>' : '';
     const aiBadge = isAiSpec ? '<div class="ai-badge">AI</div>' : '';
     const tag = isAiSpec
       ? p.specialty.value.toUpperCase()
