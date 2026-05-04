@@ -844,7 +844,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.9.8';
+const APP_VERSION = 'v2.9.9';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -5043,12 +5043,36 @@ async function analyzeWissenPdf(recordId, base64OrUrl){
   const model = 'claude-haiku-4-5-20251001';
   const buildBody = () => JSON.stringify({
     model,
-    max_tokens: 2000,
+    max_tokens: 8000,
     messages: [{
       role:'user',
       content: [
         { type:'document', source:{ type:'base64', media_type:'application/pdf', data: base64 } },
-        { type:'text', text: 'Du analysierst ein technisches Dokument für Aufzugstechniker (Service-Handbuch, Fehlercode-Liste, Schaltplan, Doku, etc.). Erstelle eine kompakte, strukturierte Zusammenfassung in Deutsch mit:\n1. Was ist das für ein Dokument?\n2. Welche Modelle/Geräte/Versionen werden behandelt?\n3. Wichtigste Fehlercodes mit Bedeutung (falls vorhanden)\n4. Häufige Symptome → Lösungen (falls vorhanden)\n5. Sicherheitshinweise (kurz)\n6. Sonstige nützliche Service-Infos\n\nHalte die Zusammenfassung knapp aber technisch präzise — diese wird als Wissensquelle für andere Techniker genutzt. Maximal 1500 Wörter. Antworte nur mit der Zusammenfassung, ohne Vor-/Nachsätze.' }
+        { type:'text', text: `Du extrahierst aus einem technischen Dokument für Aufzugstechniker (Service-Handbuch, Fehlercode-Liste, Schaltplan, Doku, etc.) eine ARBEITS-Wissensbasis in Deutsch.
+
+ABSOLUT WICHTIG — VOLLSTÄNDIGKEIT VOR KÜRZE:
+
+1. **FEHLERCODES, FEHLERTABELLEN, ALARMLISTEN**: VOLLSTÄNDIG und 1:1 WÖRTLICH übernehmen. Jeden Code, jede Bedeutung, jede Behebung. KEINE "wichtigsten" filtern, KEINE Kürzungen, KEIN "etc." oder "...". Format: Markdown-Tabelle mit allen Spalten des Originals.
+2. **PARAMETER-LISTEN, KONFIGURATIONS-TABELLEN, ADRESSRÄUME, PIN-BELEGUNGEN, KLEMMENPLÄNE**: ebenfalls 1:1 wörtlich, vollständig, als Markdown-Tabelle.
+3. **TECHNISCHE GRENZWERTE, SCHALTSCHWELLEN, MESSWERTE**: exakt übernehmen mit Einheit.
+4. **PRÜFSCHRITTE, DIAGNOSE-PROZEDUREN**: vollständige Schrittfolge, nicht zusammengefasst.
+
+ZUSAMMENFASSUNG NUR FÜR:
+- Was ist das für ein Dokument?
+- Welche Modelle/Geräte/Versionen werden behandelt?
+- Sicherheitshinweise (knapp)
+
+GLIEDERUNG (Markdown):
+## Dokumenttyp
+## Behandelte Modelle/Versionen
+## Sicherheitshinweise
+## Fehlercodes / Alarmtabellen (VOLLSTÄNDIG, 1:1)
+## Parameter / Konfiguration (VOLLSTÄNDIG, 1:1)
+## Diagnose-Prozeduren (vollständige Schrittfolgen)
+## Häufige Symptome → Lösungen
+## Sonstiges
+
+Diese Wissensbasis wird im Feld zur Fehlersuche genutzt — wenn ein Techniker einen Fehlercode sucht, MUSS er ihn finden können. Antworte nur mit dem strukturierten Inhalt, ohne Vor-/Nachsätze.` }
       ]
     }]
   });
