@@ -106,6 +106,28 @@ button{cursor:pointer;border:none;background:none}
 @media (max-width:768px){
   .login-content{padding-top:calc(32px + env(safe-area-inset-top));padding-bottom:calc(28px + env(safe-area-inset-bottom));padding-left:calc(28px + env(safe-area-inset-left));padding-right:calc(28px + env(safe-area-inset-right))}
 }
+/* INSTALL-HINT-MODAL */
+.install-hint-step{display:flex;flex-direction:column;align-items:center;text-align:center;padding:8px 4px 4px}
+.install-hint-progress{display:flex;gap:8px;justify-content:center;margin-bottom:18px}
+.install-hint-progress .dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.18)}
+.install-hint-progress .dot.active{background:var(--accent);box-shadow:0 0 8px var(--accent)}
+.install-hint-progress .dot.done{background:var(--accent);opacity:.55}
+.install-hint-icon-wrap{position:relative;width:120px;height:120px;display:flex;align-items:center;justify-content:center;margin:14px 0 22px}
+.install-hint-icon{width:90px;height:90px;border-radius:22px;background:linear-gradient(135deg,#1a2942,#0f1623);border:1.5px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:46px;animation:hintPulse 1.6s ease-in-out infinite;box-shadow:0 0 30px -8px var(--accent)}
+.install-hint-icon.success{border-color:var(--online);box-shadow:0 0 30px -6px var(--online);animation:hintPop .55s ease-out}
+.install-hint-arrow{position:absolute;font-size:32px;color:var(--accent);animation:hintBounce 1.1s ease-in-out infinite}
+.install-hint-arrow.top{top:-14px;left:50%;transform:translateX(-50%)}
+.install-hint-arrow.bottom{bottom:-14px;left:50%;transform:translateX(-50%) rotate(180deg)}
+.install-hint-headline{font-family:'Archivo',sans-serif;font-weight:800;font-stretch:75%;font-size:24px;line-height:1.1;letter-spacing:-.02em;margin-bottom:10px}
+.install-hint-text{font-size:14px;color:var(--text-dim);line-height:1.45;margin-bottom:6px;max-width:320px}
+.install-hint-text strong{color:var(--text)}
+.install-hint-platform{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--text-very-dim);text-transform:uppercase;letter-spacing:.14em;margin-top:4px}
+@keyframes hintPulse{0%,100%{transform:scale(1);box-shadow:0 0 30px -8px var(--accent)}50%{transform:scale(1.06);box-shadow:0 0 40px -4px var(--accent)}}
+@keyframes hintBounce{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-7px)}}
+@keyframes hintPop{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.1);opacity:1}100%{transform:scale(1)}}
+.install-hint-arrow.bottom{animation:hintBounceBottom 1.1s ease-in-out infinite}
+@keyframes hintBounceBottom{0%,100%{transform:translateX(-50%) rotate(180deg) translateY(0)}50%{transform:translateX(-50%) rotate(180deg) translateY(-7px)}}
+
 .login-lang-toggle{display:flex;gap:6px;justify-content:flex-end;margin-bottom:14px}
 .login-lang-toggle .lang-pill{background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.12em;padding:6px 10px;border-radius:20px;cursor:pointer;transition:all .15s}
 .login-lang-toggle .lang-pill.active{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
@@ -805,6 +827,22 @@ button{cursor:pointer;border:none;background:none}
   </div>
 </div>
 
+<!-- INSTALL HINT MODAL (Add to Home Screen) -->
+<div class="modal" id="installHintModal">
+  <div class="modal-sheet" style="max-width:420px;margin:auto">
+    <div class="modal-header">
+      <div class="modal-title" id="installHintTitle">App installieren</div>
+      <button class="modal-close" onclick="dismissInstallHint(false)">×</button>
+    </div>
+    <div class="modal-body" id="installHintBody"></div>
+    <div class="modal-footer" style="display:flex;gap:6px;align-items:center">
+      <button class="action-button cancel" onclick="dismissInstallHint(true)" id="installHintNeverBtn" style="flex:0 0 auto;font-size:10px;padding:14px 10px">Nicht mehr anzeigen</button>
+      <button class="action-button" onclick="installHintBack()" id="installHintBackBtn" style="display:none;flex:0 0 50px">←</button>
+      <button class="action-button primary" onclick="installHintNext()" id="installHintNextBtn" style="flex:1">Weiter →</button>
+    </div>
+  </div>
+</div>
+
 <!-- LEARN FROM RESOLVED CHAT MODAL -->
 <div class="modal" id="learnFromChatModal">
   <div class="modal-sheet">
@@ -844,7 +882,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.9.12';
+const APP_VERSION = 'v2.9.13';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -1590,6 +1628,30 @@ const I18N = {
     yes: 'Ja',
     no: 'Nein',
     cancel: 'Abbrechen',
+    // Install Hint
+    install_title: 'App installieren',
+    install_step_label: 'Schritt',
+    install_back: '←',
+    install_next: 'Weiter →',
+    install_finish: 'Fertig',
+    install_never: 'Nicht mehr anzeigen',
+    install_skip: 'Später',
+    install_platform_ios: 'iPhone · Safari',
+    install_platform_android: 'Android · Chrome',
+    install_platform_desktop: 'Desktop',
+    install_ios_1_title: 'Tippe auf das Teilen-Symbol',
+    install_ios_1_text: 'Unten in der Safari-Leiste: das Quadrat mit dem Pfeil nach oben.',
+    install_ios_2_title: 'Wähle „Zum Home-Bildschirm"',
+    install_ios_2_text: 'Im Teilen-Menü scrollst du etwas runter und tippst auf <strong>„Zum Home-Bildschirm"</strong>.',
+    install_ios_3_title: 'Tippe auf „Hinzufügen"',
+    install_ios_3_text: 'Oben rechts mit <strong>„Hinzufügen"</strong> bestätigen — fertig!',
+    install_done_title: 'App ist installiert!',
+    install_done_text: 'Du findest <strong>FLP Supporter</strong> ab sofort auf deinem Home-Bildschirm und startest sie wie eine native App.',
+    install_android_title: 'App installieren',
+    install_android_text: 'Tippe oben rechts auf das Drei-Punkte-Menü <strong>⋮</strong> und wähle <strong>„App installieren"</strong> oder <strong>„Zum Startbildschirm hinzufügen"</strong>.',
+    install_android_button: 'Jetzt installieren',
+    install_desktop_title: 'Du nutzt die Desktop-Version',
+    install_desktop_text: 'Auf dem Smartphone kannst du diese App auch wie eine native App zum Home-Bildschirm hinzufügen — dann hast du sie immer schnell zur Hand.',
   },
   en: {
     login_eyebrow: 'FLP · SUPPORTER',
@@ -1744,6 +1806,29 @@ const I18N = {
     yes: 'Yes',
     no: 'No',
     cancel: 'Cancel',
+    install_title: 'Install the app',
+    install_step_label: 'Step',
+    install_back: '←',
+    install_next: 'Next →',
+    install_finish: 'Done',
+    install_never: 'Don’t show again',
+    install_skip: 'Later',
+    install_platform_ios: 'iPhone · Safari',
+    install_platform_android: 'Android · Chrome',
+    install_platform_desktop: 'Desktop',
+    install_ios_1_title: 'Tap the Share icon',
+    install_ios_1_text: 'In the Safari toolbar at the bottom: the square with the up arrow.',
+    install_ios_2_title: 'Choose “Add to Home Screen”',
+    install_ios_2_text: 'In the share menu, scroll down a bit and tap <strong>“Add to Home Screen”</strong>.',
+    install_ios_3_title: 'Tap “Add”',
+    install_ios_3_text: 'Confirm with <strong>“Add”</strong> in the top right — that’s it!',
+    install_done_title: 'App installed!',
+    install_done_text: 'You’ll now find <strong>FLP Supporter</strong> on your home screen and can launch it like a native app.',
+    install_android_title: 'Install the app',
+    install_android_text: 'Tap the three-dot menu <strong>⋮</strong> in the top right and choose <strong>“Install app”</strong> or <strong>“Add to home screen”</strong>.',
+    install_android_button: 'Install now',
+    install_desktop_title: 'You’re on the desktop version',
+    install_desktop_text: 'On your phone you can add this app to your home screen and use it like a native app — always one tap away.',
   },
 };
 
@@ -1918,6 +2003,7 @@ async function afterOnboarding(){
   setTimeout(()=>{ debugLog('loadHomeDataDeferred start (background)'); loadHomeDataDeferred().then(()=>{
     debugLog('FULLY READY ✓✓');
     requestNotificationPermission();
+    maybeShowInstallHint();
     startGlobalChatsPolling();
     // Admin-Polling für offene Key-Anfragen
     if(isAdmin()){
@@ -1930,6 +2016,150 @@ async function afterOnboarding(){
   window._hbInterval = setInterval(()=>{
     if(STATE.myProfile) atUpdate('TechnikerProfile', STATE.myProfile.id, { last_seen: new Date().toISOString() }).catch(()=>{});
   }, 60000);
+}
+
+// ============================================================
+// INSTALL-HINT (Add to Home Screen) — einmalig nach Login
+// ============================================================
+let INSTALL_DEFERRED_PROMPT = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  INSTALL_DEFERRED_PROMPT = e;
+});
+let INSTALL_HINT = { step: 0, total: 1, platform: 'desktop' };
+
+function getInstallPlatform(){
+  const ua = navigator.userAgent || '';
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone === true;
+  if(isStandalone) return 'standalone';
+  if(/iPad|iPhone|iPod/.test(ua) && !window.MSStream) return 'ios';
+  if(/Android/.test(ua)) return 'android';
+  return 'desktop';
+}
+
+function maybeShowInstallHint(){
+  if(localStorage.getItem('install_hint_dismissed') === '1') return;
+  const platform = getInstallPlatform();
+  if(platform === 'standalone') return; // schon installiert
+  // Kleine Verzögerung damit Home-Screen erst rendert
+  setTimeout(() => openInstallHint(platform), 600);
+}
+
+function openInstallHint(platform){
+  INSTALL_HINT.platform = platform || getInstallPlatform();
+  INSTALL_HINT.step = 0;
+  INSTALL_HINT.total = INSTALL_HINT.platform === 'ios' ? 4 : 1; // iOS: 3 Anleitungs-Schritte + Done
+  renderInstallHint();
+  openModal('installHintModal');
+}
+
+function renderInstallHint(){
+  const body = document.getElementById('installHintBody');
+  const titleEl = document.getElementById('installHintTitle');
+  const nextBtn = document.getElementById('installHintNextBtn');
+  const backBtn = document.getElementById('installHintBackBtn');
+  const neverBtn = document.getElementById('installHintNeverBtn');
+  if(!body) return;
+  const p = INSTALL_HINT.platform;
+  const step = INSTALL_HINT.step;
+  titleEl.textContent = t('install_title');
+  neverBtn.textContent = t('install_never');
+
+  // Progress-Dots (nur für iOS sinnvoll, da mehrere Schritte)
+  let progressHtml = '';
+  if(INSTALL_HINT.total > 1){
+    progressHtml = '<div class="install-hint-progress">';
+    for(let i = 0; i < INSTALL_HINT.total; i++){
+      const cls = i < step ? 'dot done' : (i === step ? 'dot active' : 'dot');
+      progressHtml += '<div class="'+cls+'"></div>';
+    }
+    progressHtml += '</div>';
+  }
+
+  let html = progressHtml + '<div class="install-hint-step">';
+  let platformLabel = '';
+  if(p === 'ios') platformLabel = t('install_platform_ios');
+  else if(p === 'android') platformLabel = t('install_platform_android');
+  else platformLabel = t('install_platform_desktop');
+
+  if(p === 'ios'){
+    if(step === 0){
+      // Schritt 1: Share-Icon (mit Pfeil von unten)
+      html += '<div class="install-hint-icon-wrap"><div class="install-hint-icon">⬆️</div><div class="install-hint-arrow bottom">▲</div></div>';
+      html += '<div class="install-hint-headline">'+t('install_ios_1_title')+'</div>';
+      html += '<div class="install-hint-text">'+t('install_ios_1_text')+'</div>';
+    } else if(step === 1){
+      // Schritt 2: Zum Home-Bildschirm (mit Pfeil von oben)
+      html += '<div class="install-hint-icon-wrap"><div class="install-hint-icon">📱</div><div class="install-hint-arrow top">▼</div></div>';
+      html += '<div class="install-hint-headline">'+t('install_ios_2_title')+'</div>';
+      html += '<div class="install-hint-text">'+t('install_ios_2_text')+'</div>';
+    } else if(step === 2){
+      // Schritt 3: Hinzufügen
+      html += '<div class="install-hint-icon-wrap"><div class="install-hint-icon">➕</div><div class="install-hint-arrow top">▼</div></div>';
+      html += '<div class="install-hint-headline">'+t('install_ios_3_title')+'</div>';
+      html += '<div class="install-hint-text">'+t('install_ios_3_text')+'</div>';
+    } else {
+      // Done
+      html += '<div class="install-hint-icon-wrap"><div class="install-hint-icon success">✅</div></div>';
+      html += '<div class="install-hint-headline">'+t('install_done_title')+'</div>';
+      html += '<div class="install-hint-text">'+t('install_done_text')+'</div>';
+    }
+  } else if(p === 'android'){
+    if(INSTALL_DEFERRED_PROMPT){
+      html += '<div class="install-hint-icon-wrap"><div class="install-hint-icon">📲</div></div>';
+      html += '<div class="install-hint-headline">'+t('install_android_title')+'</div>';
+      html += '<div class="install-hint-text">'+t('install_done_text')+'</div>';
+      html += '<button class="action-button primary" style="margin-top:18px;width:auto;padding:14px 24px" onclick="triggerNativeInstall()">'+t('install_android_button')+'</button>';
+    } else {
+      html += '<div class="install-hint-icon-wrap"><div class="install-hint-icon">⋮</div><div class="install-hint-arrow top">▼</div></div>';
+      html += '<div class="install-hint-headline">'+t('install_android_title')+'</div>';
+      html += '<div class="install-hint-text">'+t('install_android_text')+'</div>';
+    }
+  } else {
+    html += '<div class="install-hint-icon-wrap"><div class="install-hint-icon">💻</div></div>';
+    html += '<div class="install-hint-headline">'+t('install_desktop_title')+'</div>';
+    html += '<div class="install-hint-text">'+t('install_desktop_text')+'</div>';
+  }
+  html += '<div class="install-hint-platform">'+platformLabel+'</div>';
+  html += '</div>';
+  body.innerHTML = html;
+
+  // Buttons
+  if(p === 'ios'){
+    backBtn.style.display = step > 0 ? 'flex' : 'none';
+    if(step < INSTALL_HINT.total - 1){
+      nextBtn.textContent = t('install_next');
+    } else {
+      nextBtn.textContent = t('install_finish');
+    }
+  } else {
+    backBtn.style.display = 'none';
+    nextBtn.textContent = t('install_finish');
+  }
+}
+
+function installHintNext(){
+  if(INSTALL_HINT.platform === 'ios' && INSTALL_HINT.step < INSTALL_HINT.total - 1){
+    INSTALL_HINT.step++;
+    renderInstallHint();
+  } else {
+    dismissInstallHint(true);
+  }
+}
+function installHintBack(){
+  if(INSTALL_HINT.step > 0){ INSTALL_HINT.step--; renderInstallHint(); }
+}
+function dismissInstallHint(persist){
+  if(persist) localStorage.setItem('install_hint_dismissed', '1');
+  closeModal('installHintModal');
+}
+async function triggerNativeInstall(){
+  if(!INSTALL_DEFERRED_PROMPT) return;
+  INSTALL_DEFERRED_PROMPT.prompt();
+  try { await INSTALL_DEFERRED_PROMPT.userChoice; } catch(e){}
+  INSTALL_DEFERRED_PROMPT = null;
+  dismissInstallHint(true);
 }
 
 // ============================================================
