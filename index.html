@@ -106,6 +106,22 @@ button{cursor:pointer;border:none;background:none}
 @media (max-width:768px){
   .login-content{padding-top:calc(32px + env(safe-area-inset-top));padding-bottom:calc(28px + env(safe-area-inset-bottom));padding-left:calc(28px + env(safe-area-inset-left));padding-right:calc(28px + env(safe-area-inset-right))}
 }
+/* IN-APP MESSAGE BANNER (top of screen, click to jump into chat) */
+.msg-banner{position:fixed;top:max(12px,env(safe-area-inset-top));left:12px;right:12px;background:linear-gradient(135deg,#1a2942,#0f1623);border:1.5px solid var(--accent);border-radius:14px;padding:12px 14px;display:flex;align-items:center;gap:12px;z-index:9999;box-shadow:0 14px 40px -12px rgba(0,0,0,.55),0 0 24px -6px var(--accent);cursor:pointer;animation:msgBannerSlide .35s cubic-bezier(.2,.85,.3,1.05);max-width:520px;margin:0 auto}
+.msg-banner.hide{animation:msgBannerOut .35s ease-in forwards}
+.msg-banner-icon{font-size:24px;flex:0 0 auto;width:40px;height:40px;border-radius:50%;background:rgba(84,183,255,.15);display:flex;align-items:center;justify-content:center}
+.msg-banner-body{flex:1;min-width:0;overflow:hidden}
+.msg-banner-title{font-weight:700;font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.msg-banner-text{font-size:11.5px;color:var(--text-dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.msg-banner-close{flex:0 0 auto;font-size:22px;color:var(--text-very-dim);padding:4px 8px;border-radius:6px}
+@keyframes msgBannerSlide{from{transform:translateY(-30px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes msgBannerOut{from{transform:translateY(0);opacity:1}to{transform:translateY(-30px);opacity:0}}
+
+/* Pulsierender Highlight am Avatar wenn dieser User dir geschrieben hat */
+.tech.has-unread .tech-avatar{animation:unreadPulse 1.4s ease-in-out infinite;outline:2px solid var(--danger) !important;outline-offset:3px !important}
+.tech.has-unread::after{content:'';position:absolute;top:-2px;right:-2px;width:14px;height:14px;background:var(--danger);border:2px solid var(--phone-screen);border-radius:50%;z-index:5;box-shadow:0 0 10px var(--danger)}
+@keyframes unreadPulse{0%,100%{outline-color:var(--danger);box-shadow:0 0 12px -2px var(--danger)}50%{outline-color:#ff7b7b;box-shadow:0 0 22px -2px var(--danger)}}
+
 /* INSTALL-HINT-MODAL */
 .install-hint-step{display:flex;flex-direction:column;align-items:center;text-align:center;padding:8px 4px 4px}
 .install-hint-progress{display:flex;gap:8px;justify-content:center;margin-bottom:18px}
@@ -882,7 +898,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.9.13';
+const APP_VERSION = 'v2.9.14';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -2213,9 +2229,11 @@ async function checkForNewMessages(){
     const myKey = APP_KEYS.user.api_key;
     const myChats = allChats.filter(c => parseList(c.fields.participants).includes(myKey));
     let newUnread = false;
+    const newlyReceived = []; // Chats mit Nachrichten von ANDEREN (für In-App-Banner)
     myChats.forEach(c => {
       const cid = c.fields.chat_id;
       const lastAt = c.fields.last_msg_at || '';
+      const lastMsg = c.fields.last_msg || '';
       const known = LAST_KNOWN_MSG_AT[cid];
       // Aktiver Chat = sofort als gelesen markieren
       if(STATE.currentChat?.fields?.chat_id === cid){
@@ -2223,11 +2241,16 @@ async function checkForNewMessages(){
         return;
       }
       if(known && lastAt && lastAt > known){
-        // Neue Nachricht!
+        // Heuristik: wenn last_msg mit dem eigenen Namen anfängt ("Patrizio: ..."), war ich der Sender → keine Notification
+        const myName = APP_KEYS.user.name || '';
+        const isMine = myName && lastMsg.startsWith(myName + ':');
+        LAST_KNOWN_MSG_AT[cid] = lastAt;
+        if(isMine) return;
+        // Neue Nachricht von jemand anderem!
         UNREAD_CHATS.add(cid);
         newUnread = true;
-        showBrowserNotification(c.fields.title || 'Neue Nachricht', c.fields.last_msg || '');
-        LAST_KNOWN_MSG_AT[cid] = lastAt;
+        newlyReceived.push(c);
+        showBrowserNotification(c.fields.title || 'Neue Nachricht', lastMsg);
       } else if(!known){
         LAST_KNOWN_MSG_AT[cid] = lastAt;
       }
@@ -2236,8 +2259,68 @@ async function checkForNewMessages(){
     if(newUnread){
       updateChatsTabBadge();
       if(STATE.activeTab === 'chats') renderChatsList();
+      if(STATE.activeTab === 'konstellation') renderConstellation(); // Avatar-Highlight
+      // In-App-Banner anzeigen — auch wenn die App offen ist (Browser-Notif unterdrückt das)
+      if(newlyReceived.length === 1){
+        showInAppMessageBanner(newlyReceived[0]);
+      } else if(newlyReceived.length > 1){
+        showInAppMessageBanner(null, newlyReceived.length);
+      }
+      // Sound (kurz, dezent)
+      playPing();
     }
   } catch(e){}
+}
+
+// Kurzer dezenter „Ping"-Ton bei neuer Nachricht (Web Audio API, kein File nötig)
+function playPing(){
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if(!Ctx) return;
+    const ctx = new Ctx();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(880, ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.08);
+    g.gain.setValueAtTime(0.0001, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.12, ctx.currentTime + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.18);
+    o.connect(g); g.connect(ctx.destination);
+    o.start();
+    o.stop(ctx.currentTime + 0.2);
+    setTimeout(()=>ctx.close().catch(()=>{}), 400);
+  } catch(e){}
+}
+
+// Klickbarer In-App-Banner oben am Bildschirm — schickt direkt in den Chat.
+// Verschwindet nach 6 Sekunden oder bei Klick.
+function showInAppMessageBanner(chat, multiCount){
+  const oldBanner = document.getElementById('msgBanner');
+  if(oldBanner) oldBanner.remove();
+  const el = document.createElement('div');
+  el.id = 'msgBanner';
+  el.className = 'msg-banner';
+  if(multiCount){
+    el.innerHTML = '<div class="msg-banner-icon">💬</div><div class="msg-banner-body"><div class="msg-banner-title">'+multiCount+' neue Nachrichten</div><div class="msg-banner-text">Tippe für „Meine Chats"</div></div><div class="msg-banner-close">×</div>';
+    el.onclick = (e) => {
+      if(e.target.classList.contains('msg-banner-close')){ el.remove(); return; }
+      el.remove();
+      switchTab('chats');
+    };
+  } else if(chat){
+    const f = chat.fields;
+    el.innerHTML = '<div class="msg-banner-icon">💬</div><div class="msg-banner-body"><div class="msg-banner-title">'+esc(f.title||'Neue Nachricht')+'</div><div class="msg-banner-text">'+esc((f.last_msg||'').slice(0,80))+'</div></div><div class="msg-banner-close">×</div>';
+    el.onclick = (e) => {
+      if(e.target.classList.contains('msg-banner-close')){ el.remove(); return; }
+      el.remove();
+      openChatById(chat.id);
+    };
+  }
+  document.body.appendChild(el);
+  // Auto-dismiss nach 6 s
+  setTimeout(() => { if(document.getElementById('msgBanner') === el) el.classList.add('hide'); }, 6000);
+  setTimeout(() => { if(document.getElementById('msgBanner') === el) el.remove(); }, 6400);
 }
 
 async function loadHomeData(){
@@ -2716,6 +2799,12 @@ function renderConstellation(){
     const isAiSpec = !!p.isAi;
     const matches = isAiSpec ? true : profileMatches(p);
     const online = isOnline(p);
+    // Markiere Avatar wenn dieser User dir gerade geschrieben hat (Chat noch ungelesen)
+    const hasUnread = !isAiSpec && (STATE.chats || []).some(c => {
+      if(!UNREAD_CHATS.has(c.fields.chat_id)) return false;
+      const ps = parseList(c.fields.participants);
+      return ps.includes(p.fields.api_key);
+    });
     const el = document.createElement('button');
     el.className = 'tech';
     if(isAiSpec) el.classList.add('ai-specialist');
@@ -2723,6 +2812,7 @@ function renderConstellation(){
     if(!matches) el.classList.add('hidden-tech');
     if(!online && matches) el.classList.add('dim');
     if(STATE.selected.has(p.id)) el.classList.add('selected');
+    if(hasUnread) el.classList.add('has-unread');
 
     // Position: deterministisch + Kollisions-Vermeidung
     const pos = hashPosNonOverlapping(p.fields.api_key || p.id, idx, others, minYForAvatars);
@@ -3771,6 +3861,8 @@ async function sendChatMessage(){
       last_msg: txt.slice(0, 100),
       last_msg_at: created,
     });
+    // Eigene Nachricht nicht als "neu" für mich selbst werten — sonst Push-Notification an mich
+    LAST_KNOWN_MSG_AT[STATE.currentChat.fields.chat_id] = created;
     await loadMessages();
     renderMessages();
 
