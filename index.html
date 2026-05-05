@@ -531,7 +531,9 @@ button{cursor:pointer;border:none;background:none}
 
 .avatar-section-title{font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.14em;color:var(--text-dim);margin:14px 0 10px;padding-bottom:7px;border-bottom:1px solid var(--rule)}
 .avatar-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:8px}
+.avatar-grid-dicebear{grid-template-columns:repeat(4,1fr);margin-bottom:14px}
 .avatar-choice{aspect-ratio:1;border-radius:50%;border:2px solid transparent;display:flex;align-items:center;justify-content:center;font-family:'Archivo',sans-serif;font-weight:800;font-stretch:75%;font-size:18px;letter-spacing:-.02em;cursor:pointer;transition:transform .15s, border-color .15s}
+.avatar-choice.avatar-dicebear{font-size:0;background-color:#1a2942}
 .avatar-choice.selected{border-color:var(--accent);transform:scale(1.05)}
 .avatar-choice:active{transform:scale(.95)}
 .avatar-current{display:flex;align-items:center;gap:14px;margin-bottom:14px;padding:14px;background:var(--surface);border:1px solid var(--rule-strong);border-radius:10px}
@@ -898,7 +900,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.9.14';
+const APP_VERSION = 'v2.9.15';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -1201,6 +1203,8 @@ async function ensureAllTables(){
   await ensureField('TechnikerProfile', 'frequenzumrichter', 'multilineText');
   await ensureField('TechnikerProfile', 'avatar', 'multipleAttachments');
   await ensureField('TechnikerProfile', 'avatar_preset', 'singleLineText');
+  await ensureField('TechnikerProfile', 'avatar_dicebear_seed', 'singleLineText');
+  await ensureField('TechnikerProfile', 'nickname', 'singleLineText');
   await ensureField('TechnikerProfile', 'tokens', 'number');
   await ensureField('TechnikerProfile', 'points', 'number');
   await ensureField('TechnikerProfile', 'phone', 'singleLineText');
@@ -1442,10 +1446,18 @@ async function logAiUsage(model, usage, purpose){
 // ============================================================
 // AVATAR HELPERS — Foto, Preset oder Initialen
 // ============================================================
+// Verfügbare Comic-Avatar-Seeds für die Auswahl in den Settings (DiceBear personas)
+const AVATAR_SEEDS = [
+  'tech-1','tech-2','tech-3','tech-4','tech-5','tech-6',
+  'tech-7','tech-8','tech-9','tech-10','tech-11','tech-12',
+];
+
 function avatarPhotoUrl(profile){
   const f = profile?.fields || profile || {};
   const arr = f.avatar;
   if(arr && arr[0] && arr[0].url) return arr[0].url;
+  // Wenn der User ein DiceBear-Avatar gewählt hat → URL daraus
+  if(f.avatar_dicebear_seed) return dicebearAvatarUrl(f.avatar_dicebear_seed);
   return null;
 }
 function avatarPresetClass(profile, fallbackIdx){
@@ -1453,9 +1465,14 @@ function avatarPresetClass(profile, fallbackIdx){
   if(f.avatar_preset && /^av-[1-8]$/.test(f.avatar_preset)) return f.avatar_preset;
   return 'av-' + (((fallbackIdx || 0) % 8) + 1);
 }
+// Anzeigename: nickname > name > api_key
+function displayName(profile){
+  const f = profile?.fields || profile || {};
+  return f.nickname || f.name || f.api_key || '?';
+}
 function avatarHTML(profile, sizePx, fallbackIdx, extraClass){
   const f = profile?.fields || profile || {};
-  const initials = makeInitials(f.name || f.api_key || '?');
+  const initials = makeInitials(displayName(profile));
   const fontSize = Math.round(sizePx * 0.35);
   const photo = avatarPhotoUrl(profile);
   const cls = (extraClass || '');
@@ -1541,6 +1558,10 @@ const I18N = {
     // Settings
     settings_title: 'Profil & Einstellungen',
     settings_user_key: 'User-Key',
+    settings_nickname: 'Nickname',
+    nickname_prompt: 'Neuen Nickname eingeben:',
+    nickname_saved: 'Nickname gespeichert',
+    avatar_section_choice: 'Comic-Avatar wählen',
     settings_models: 'Modelle',
     settings_controls: 'Steuerungen',
     settings_fu: 'Frequenzumrichter',
@@ -1726,6 +1747,10 @@ const I18N = {
     chat_status_resolved: 'Solved',
     settings_title: 'Profile & Settings',
     settings_user_key: 'User key',
+    settings_nickname: 'Nickname',
+    nickname_prompt: 'Enter new nickname:',
+    nickname_saved: 'Nickname saved',
+    avatar_section_choice: 'Choose a comic avatar',
     settings_models: 'Models',
     settings_controls: 'Controllers',
     settings_fu: 'Frequency converters',
@@ -1918,6 +1943,22 @@ function renderLoginScreen(){
 
 function myLang(){
   return getLang();
+}
+
+// Nickname ändern
+async function changeNicknamePrompt(){
+  if(!STATE.myProfile) return;
+  const current = STATE.myProfile.fields.nickname || APP_KEYS.user.name || '';
+  const next = (window.prompt(t('nickname_prompt'), current) || '').trim();
+  if(!next || next === current) return;
+  try {
+    await atUpdate('TechnikerProfile', STATE.myProfile.id, { nickname: next });
+    STATE.myProfile.fields.nickname = next;
+    toast(t('nickname_saved'), 'success');
+    if(document.getElementById('settingsModal')?.classList.contains('active')) openSettings();
+    renderUserBar();
+    if(STATE.activeTab === 'konstellation') renderConstellation();
+  } catch(e){ toast(e.message, 'error'); }
 }
 
 async function setMyLanguage(lang){
@@ -2538,7 +2579,7 @@ function renderUserBar(){
   const tokensHtml = STATE.myProfile ? '<span class="user-bar-token" onclick="openLeaderboard()" title="'+esc(t('settings_points'))+'">🪙 '+tokens+(tier?' · '+tier.icon:'')+(points?' '+points:'')+'</span>' : '';
   const html = `
     <div class="user-bar-left">
-      <span class="user-bar-name">${esc(u.name || u.api_key || '—')}</span>
+      <span class="user-bar-name">${esc(STATE.myProfile?.fields?.nickname || u.name || u.api_key || '—')}</span>
       <span class="user-bar-role ${role==='admin'?'admin':''}">${roleLabel}</span>
     </div>
     ${tokensHtml}
@@ -2831,7 +2872,7 @@ function renderConstellation(){
     else if(matches) size = 46;
     else size = 38;
 
-    const initials = makeInitials(p.fields.name || p.fields.api_key);
+    const initials = makeInitials(displayName(p));
     let innerAvatar;
     if(isAiSpec){
       innerAvatar = `<div class="tech-avatar" style="width:${size}px;height:${size}px;background-image:url(${esc(p.avatarUrl)});background-size:cover;background-position:center;background-color:#1a2942"></div>`;
@@ -2856,7 +2897,7 @@ function renderConstellation(){
         ${techMedal}
         ${aiBadge}
       </div>
-      <div class="tech-name">${esc(p.fields.name || p.fields.api_key)}</div>
+      <div class="tech-name">${esc(displayName(p))}</div>
       ${tag ? '<div class="tech-tag">'+esc(tag)+'</div>' : ''}
     `;
     el.onclick = ()=> handleTechTap(p);
@@ -4261,6 +4302,7 @@ function openSettings(){
   body.innerHTML = `
     <div class="settings-row"><div><div class="settings-label">${esc(u.name || u.api_key)}</div><div class="settings-value">${esc(u.role || 'TECHNIKER')}</div></div></div>
     <div class="settings-row"><div class="settings-label">${t('settings_user_key')}</div><div class="settings-value">${esc(u.api_key)}</div></div>
+    <div class="settings-row"><div><div class="settings-label">${t('settings_nickname')}</div><div class="settings-value" style="margin-top:3px">${esc(STATE.myProfile?.fields?.nickname || u.name || '—')}</div></div><button class="settings-action" onclick="changeNicknamePrompt()">${t('settings_edit')}</button></div>
     <div class="settings-row"><div class="settings-label">${t('settings_models')}</div><div class="settings-value">${esc(parseList(p.models).join(', ') || '—')}</div></div>
     <div class="settings-row"><div class="settings-label">${t('settings_controls')}</div><div class="settings-value">${esc(parseList(p.controls).join(', ') || '—')}</div></div>
     <div class="settings-row"><div class="settings-label">${t('settings_fu')}</div><div class="settings-value">${esc(parseList(p.frequenzumrichter).join(', ') || '—')}</div></div>
@@ -4319,7 +4361,18 @@ function renderAvatarModal(){
   if(photo){
     html += '<button class="kat-btn del" style="display:block;margin:0 auto 14px;padding:6px 12px" onclick="removeAvatarPhoto()">'+t('avatar_remove')+'</button>';
   }
-  // Preset-Auswahl
+  // Comic-Avatar-Auswahl (DiceBear personas)
+  const currentSeed = p?.fields?.avatar_dicebear_seed || '';
+  const hasUploadedPhoto = !!(p?.fields?.avatar?.length);
+  html += '<div class="avatar-section-title">'+t('avatar_section_choice')+'</div>';
+  html += '<div class="avatar-grid avatar-grid-dicebear">';
+  AVATAR_SEEDS.forEach(seed => {
+    const sel = (currentSeed === seed && !hasUploadedPhoto) ? ' selected' : '';
+    const url = dicebearAvatarUrl(seed);
+    html += '<button class="avatar-choice avatar-dicebear'+sel+'" onclick="setAvatarDicebear(\''+esc(seed)+'\')" style="background-image:url('+esc(url)+');background-size:cover;background-position:center;background-color:#1a2942"></button>';
+  });
+  html += '</div>';
+  // Klassische Initialen-Preset-Auswahl
   html += '<div class="avatar-section-title">'+t('avatar_choice')+'</div>';
   html += '<div class="avatar-grid">';
   for(let i = 1; i <= 8; i++){
@@ -4331,11 +4384,31 @@ function renderAvatarModal(){
   body.innerHTML = html;
 }
 
+// Comic-Avatar (DiceBear) auswählen
+async function setAvatarDicebear(seed){
+  if(!STATE.myProfile) return;
+  try {
+    const updates = { avatar_dicebear_seed: seed };
+    await atUpdate('TechnikerProfile', STATE.myProfile.id, updates);
+    STATE.myProfile.fields.avatar_dicebear_seed = seed;
+    // Wenn vorher Foto da war → entfernen, damit DiceBear sichtbar wird
+    if(STATE.myProfile.fields.avatar?.length){
+      await atUpdate('TechnikerProfile', STATE.myProfile.id, { avatar: [] });
+      STATE.myProfile.fields.avatar = [];
+    }
+    renderAvatarModal();
+    refreshAvatars();
+    toast('Avatar geändert', 'success');
+  } catch(e){ toast(e.message, 'error'); }
+}
+
 async function setAvatarPreset(preset){
   if(!STATE.myProfile) return;
   try {
-    await atUpdate('TechnikerProfile', STATE.myProfile.id, { avatar_preset: preset });
+    // Preset überschreibt auch DiceBear-Seed (wäre sonst Vorrang)
+    await atUpdate('TechnikerProfile', STATE.myProfile.id, { avatar_preset: preset, avatar_dicebear_seed: '' });
     STATE.myProfile.fields.avatar_preset = preset;
+    STATE.myProfile.fields.avatar_dicebear_seed = '';
     // Wenn vorher Foto da war → entfernen
     if(STATE.myProfile.fields.avatar?.length){
       await atUpdate('TechnikerProfile', STATE.myProfile.id, { avatar: [] });
