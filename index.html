@@ -844,7 +844,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.9.11';
+const APP_VERSION = 'v2.9.12';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -4507,6 +4507,7 @@ function renderUserMgmt(){
     html += '<div class="name">'+esc(f.name || f.api_key)+' <span class="role '+(role==='admin'?'admin':'')+'">'+(role==='admin'?'ADMIN':'USER')+'</span>'+(tier?' '+tier.icon:'')+(isSelf?' <span style="font-size:9px;color:var(--text-very-dim);margin-left:4px">(Du)</span>':'')+'</div>';
     html += '<div class="meta"><span>'+esc(f.api_key)+'</span><span>'+esc(skills)+'</span><span>'+esc(lastSeenStr)+'</span><span style="color:#fbbf24;font-weight:700">🪙 '+tokens+'</span><span style="color:var(--accent);font-weight:700">'+points+' Pkt</span></div>';
     html += '<div style="display:flex;gap:5px;margin-top:6px;flex-wrap:wrap">';
+    html += '<button class="kat-btn" style="padding:4px 8px;font-size:9px" title="Login-Anleitung mit Key kopieren (DE + EN)" onclick="copyLoginInstructions(\''+esc(f.api_key)+'\',\''+esc(f.name||f.api_key).replace(/'/g,"\\'")+'\')">📋 Login</button>';
     if(p){
       html += '<button class="kat-btn" style="padding:4px 8px;font-size:9px" onclick="grantTokensPrompt(\''+p.id+'\',\''+esc(f.name||f.api_key).replace(/'/g,"\\'")+'\')">+ Tokens</button>';
     }
@@ -4525,6 +4526,61 @@ function renderUserMgmt(){
 }
 
 // --- Admin User-Verwaltung Aktionen ---
+
+// Kopiert eine zweisprachige Login-Anleitung mit User-Key in die Zwischenablage,
+// damit der Admin sie per Mail/WhatsApp/etc. an den User weiterleiten kann.
+async function copyLoginInstructions(apiKey, userName){
+  const url = 'https://giltglobalinvest-pixel.github.io/support_app_flp/';
+  const text =
+`══════════════════════════════════════════
+🇩🇪 DEUTSCH
+══════════════════════════════════════════
+
+Hallo ${userName},
+
+hier ist dein Zugang zur FLP Supporter App:
+
+  App-Link:   ${url}
+  Dein Key:   ${apiKey}
+
+So loggst du dich ein:
+  1. Öffne den Link oben im Browser (Safari auf iPhone, Chrome auf Android)
+  2. Optional: tippe auf "Teilen → Zum Home-Bildschirm" damit die App wie eine native App startet
+  3. Trage deinen persönlichen Schlüssel im Login-Feld ein
+  4. Klicke auf "Einloggen →"
+  5. Folge dem kurzen Onboarding (Modelle, Steuerungen, Frequenzumrichter)
+
+Bei Problemen melde dich bei deinem Admin.
+
+
+══════════════════════════════════════════
+🇬🇧 ENGLISH
+══════════════════════════════════════════
+
+Hi ${userName},
+
+here is your access to the FLP Supporter app:
+
+  App URL:    ${url}
+  Your key:   ${apiKey}
+
+How to sign in:
+  1. Open the link above in your browser (Safari on iPhone, Chrome on Android)
+  2. Optional: tap "Share → Add to Home Screen" so the app launches like a native app
+  3. Enter your personal key in the login field
+  4. Click "Sign in →"
+  5. Complete the short onboarding (models, controls, frequency converters)
+
+If you have any issues, contact your admin.
+`;
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('Login-Anleitung kopiert (DE + EN)', 'success');
+  } catch(e){
+    // Fallback: zeige Text in einem Prompt damit der User ihn manuell kopieren kann
+    window.prompt('Login-Anleitung (manuell kopieren):', text);
+  }
+}
 
 function showAddUserForm(){
   const slot = document.getElementById('addUserFormSlot');
