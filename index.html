@@ -502,6 +502,7 @@ button{cursor:pointer;border:none;background:none}
 .wissen-doc .wissen-doc-status.ready{background:rgba(52,211,153,.10);color:var(--online)}
 .wissen-doc .wissen-doc-status.processing{background:rgba(192,132,252,.15);color:var(--ai)}
 .wissen-doc .wissen-doc-status.error{background:rgba(248,113,113,.15);color:var(--danger)}
+.wissen-doc .wissen-doc-status.paused{background:rgba(251,191,36,.15);color:#fbbf24}
 .wissen-doc .wissen-doc-del{background:transparent;border:1px solid rgba(248,113,113,.30);color:var(--danger);padding:3px 8px;border-radius:4px;font-size:11px;font-family:'JetBrains Mono',monospace}
 
 .user-mgmt-filter{display:flex;flex-wrap:wrap;gap:5px;padding-bottom:14px;border-bottom:1px solid var(--rule);margin-bottom:14px}
@@ -924,7 +925,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.9.26';
+const APP_VERSION = 'v2.9.27';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -5595,13 +5596,19 @@ function renderWissenItem(){
     docs.forEach(d => {
       const f = d.fields;
       const status = f.status || 'ready';
-      const statusLabel = status === 'processing' ? 'WIRD ANALYSIERT' : status === 'error' ? 'FEHLER' : 'BEREIT';
+      const statusLabel = status === 'processing' ? 'WIRD ANALYSIERT' : status === 'error' ? 'FEHLER' : status === 'paused' ? 'PAUSIERT' : 'BEREIT';
       const fileUrl = (f.pdf && f.pdf[0]) ? f.pdf[0].url : '';
       html += '<div class="wissen-doc">';
       html += '<div class="wissen-doc-title"><span>'+esc(f.title || 'Dokument')+'</span><span class="wissen-doc-status '+status+'">'+statusLabel+'</span></div>';
       html += '<div class="wissen-doc-meta">Hochgeladen: '+esc(new Date(f.uploaded_at||Date.now()).toLocaleDateString('de-DE'))+' · von '+esc(f.uploaded_by||'?')+(fileUrl?' · <a href="'+esc(fileUrl)+'" target="_blank" style="color:var(--accent)">Öffnen ↗</a>':'')+'</div>';
       if(f.summary){ html += '<div class="wissen-doc-summary">'+esc(f.summary)+'</div>'; }
-      html += '<div style="margin-top:8px;display:flex;gap:5px;justify-content:flex-end">';
+      html += '<div style="margin-top:8px;display:flex;gap:5px;justify-content:flex-end;flex-wrap:wrap">';
+      if(status === 'processing' && fileUrl){
+        html += '<button class="wissen-doc-del" style="border-color:#fbbf24;color:#fbbf24" onclick="pauseAnalysis(\''+d.id+'\')">⏸ Pausieren</button>';
+      }
+      if(status === 'paused' && fileUrl){
+        html += '<button class="wissen-doc-del" style="border-color:var(--online);color:var(--online)" onclick="resumeAnalysis(\''+d.id+'\')">▶ Fortsetzen</button>';
+      }
       if((status === 'error' || status === 'processing') && fileUrl){
         html += '<button class="wissen-doc-del" style="border-color:var(--accent);color:var(--accent)" onclick="retryWissenAnalysis(\''+d.id+'\')">Erneut analysieren</button>';
       }
@@ -5741,10 +5748,14 @@ async function handleWissenUpload(input){
           await analyzeWissenPdf(recId, chunkBase64);
           awardTokens(0, POINTS_WISSEN, 'Wissen-PDF (Teil)').catch(()=>{});
         } catch(e){
-          await atUpdate('Wissen', recId, {
-            status: 'error',
-            summary: 'Analyse-Fehler: ' + humanizeAnalysisError(e.message || 'unknown')
-          }).catch(()=>{});
+          if(e?.isPaused){
+            // Pausiert vom User — Status bereits via pauseAnalysis() gesetzt, kein error-overwrite
+          } else {
+            await atUpdate('Wissen', recId, {
+              status: 'error',
+              summary: 'Analyse-Fehler: ' + humanizeAnalysisError(e.message || 'unknown')
+            }).catch(()=>{});
+          }
         }
         // Refresh nach jedem fertigen Chunk
         await loadWissen();
@@ -5778,8 +5789,38 @@ async function fetchPdfAsBase64(url){
   });
 }
 
+// In-memory Set + localStorage-Persistenz für pausierte Wissens-Records
+let PAUSED_RECORDS = new Set();
+try { PAUSED_RECORDS = new Set(JSON.parse(localStorage.getItem('paused_records') || '[]')); } catch(e){}
+function persistPausedRecords(){
+  try { localStorage.setItem('paused_records', JSON.stringify([...PAUSED_RECORDS])); } catch(e){}
+}
+function isRecordPaused(id){ return PAUSED_RECORDS.has(id); }
+
+class PausedError extends Error { constructor(){ super('paused'); this.isPaused = true; } }
+
+async function pauseAnalysis(recordId){
+  PAUSED_RECORDS.add(recordId);
+  persistPausedRecords();
+  // Status sofort auf 'paused' setzen — der laufende Task erkennt das beim nächsten check
+  try {
+    await atUpdate('Wissen', recordId, { status: 'paused', summary: 'Pausiert vom User' });
+    const w = STATE.wissen.find(x => x.id === recordId);
+    if(w){ w.fields.status = 'paused'; w.fields.summary = 'Pausiert vom User'; }
+    renderWissenItem();
+    toast('Analyse pausiert', 'info');
+  } catch(e){ toast(e.message, 'error'); }
+}
+async function resumeAnalysis(recordId){
+  PAUSED_RECORDS.delete(recordId);
+  persistPausedRecords();
+  // Wie ein normaler Retry — lädt das PDF nochmal aus Airtable und startet
+  await retryWissenAnalysis(recordId);
+}
+
 async function analyzeWissenPdf(recordId, base64OrUrl){
   if(!APP_KEYS.anthropicKey) throw new Error('Kein Anthropic-Key');
+  if(isRecordPaused(recordId)) throw new PausedError();
   // Wenn URL übergeben wurde → erst auf base64 ziehen (Anthropic akzeptiert beides, base64 ist hier verlässlicher)
   let base64 = base64OrUrl;
   if(typeof base64OrUrl === 'string' && /^https?:\/\//.test(base64OrUrl)){
@@ -5857,6 +5898,7 @@ Diese Wissensbasis wird im Feld zur Fehlersuche genutzt — Codes/Werte müssen 
       const wait = (ra > 0 ? ra : Math.min(60, Math.pow(2, attempt) * 5)) * 1000;
       try { await atUpdate('Wissen', recordId, { summary: 'Rate-Limit — warte '+(wait/1000)+'s, Versuch '+(attempt+2)+'/4...' }); } catch(e){}
       await new Promise(r => setTimeout(r, wait));
+      if(isRecordPaused(recordId)) throw new PausedError();
       continue;
     }
     // Anderer Fehler → nicht retry-en
@@ -5939,10 +5981,14 @@ async function retryWissenAnalysis(recordId){
         try {
           await analyzeWissenPdf(newRecId, chunkBase64);
         } catch(e){
-          await atUpdate('Wissen', newRecId, {
-            status: 'error',
-            summary: 'Analyse-Fehler: ' + humanizeAnalysisError(e.message || 'unknown')
-          }).catch(()=>{});
+          if(e?.isPaused){
+            // Pausiert vom User
+          } else {
+            await atUpdate('Wissen', newRecId, {
+              status: 'error',
+              summary: 'Analyse-Fehler: ' + humanizeAnalysisError(e.message || 'unknown')
+            }).catch(()=>{});
+          }
         }
         await loadWissen();
         renderWissenItem();
@@ -5952,6 +5998,7 @@ async function retryWissenAnalysis(recordId){
     await loadWissen(); renderWissenItem();
     toast('Splitting fertig — '+split.chunks.length+' Teile werden nacheinander analysiert', 'success');
   } catch(e){
+    if(e?.isPaused){ await loadWissen(); renderWissenItem(); return; }
     const niceMsg = humanizeAnalysisError(e.message || 'unknown');
     await atUpdate('Wissen', recordId, { status: 'error', summary: 'Analyse-Fehler: ' + niceMsg }).catch(()=>{});
     await loadWissen(); renderWissenItem();
@@ -5968,6 +6015,7 @@ async function resumeStuckWissenAnalyses(){
   const stuck = STATE.wissen.filter(w => {
     const f = w.fields;
     if(!f.pdf?.[0]?.url) return false;
+    if(isRecordPaused(w.id)) return false; // pausierte nicht automatisch retriggern
     const age = now - new Date(f.uploaded_at || 0).getTime();
     return f.status === 'processing' && age > 2*60*1000;
   }).slice(-3);
@@ -5975,6 +6023,7 @@ async function resumeStuckWissenAnalyses(){
     try {
       await analyzeWissenPdf(w.id, w.fields.pdf[0].url);
     } catch(e){
+      if(e?.isPaused) continue;
       await atUpdate('Wissen', w.id, { status: 'error', summary: 'Resume-Fehler: ' + (e.message||'') }).catch(()=>{});
     }
     // 60s Pause zwischen Records, damit das Per-Minute Token-Limit nicht überschritten wird
