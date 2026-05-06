@@ -924,7 +924,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.9.21';
+const APP_VERSION = 'v2.9.22';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -5591,6 +5591,8 @@ function renderWissenItem(){
 function humanizeAnalysisError(rawMsg){
   const msg = String(rawMsg || '');
   if(/maximum of 100 PDF pages/i.test(msg)) return 'PDF zu lang (über 100 Seiten). Wird automatisch in kleinere Teile gesplittet — falls dieser Fehler trotzdem erscheint, das PDF bitte vorher manuell teilen.';
+  if(/PDFDocument\.load.*encrypted|encrypted.*ignoreEncryption/i.test(msg)) return 'PDF ist passwortgeschützt. Bitte das Passwort entfernen (in Vorschau: „Datei → Exportieren → Passwort weglassen") und neu hochladen.';
+  if(/passwortgeschützt|password|encrypted/i.test(msg)) return msg; // schon menschlich
   if(/rate limit|429/i.test(msg)) return 'Rate-Limit überschritten. Wird automatisch erneut versucht.';
   if(/api key|unauthor/i.test(msg)) return 'API-Key ungültig oder nicht konfiguriert.';
   if(/invalid base64|too large|payload/i.test(msg)) return 'PDF zu groß für die KI-Analyse. Bitte kleiner halten oder splitten.';
@@ -5607,10 +5609,20 @@ function bytesToBase64(bytes){
 }
 
 // Splittet ein PDF (ArrayBuffer) in Teile von max chunkSize Seiten.
-// Returnt [{ bytes: Uint8Array, base64: string, startPage, endPage }, ...]
+// Returnt { totalPages, chunks: [{ bytes, base64, startPage, endPage }, ...] }
+// ignoreEncryption: true → öffnet auch PDFs mit verschlüsselten Metadaten (häufig bei Service-Manuals)
 async function splitPdfIfNeeded(arrayBuffer, chunkSize){
   if(typeof PDFLib === 'undefined') throw new Error('pdf-lib nicht geladen');
-  const sourcePdf = await PDFLib.PDFDocument.load(arrayBuffer);
+  let sourcePdf;
+  try {
+    sourcePdf = await PDFLib.PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+  } catch(e){
+    // Echtes Password-Encryption (nicht nur Metadaten) → klare Fehlermeldung
+    if(/encrypted|password/i.test(e.message || '')){
+      throw new Error('PDF ist passwortgeschützt. Bitte das Passwort entfernen (in Vorschau: „Datei → Exportieren → Passwort weglassen") und neu hochladen.');
+    }
+    throw e;
+  }
   const total = sourcePdf.getPageCount();
   if(total <= chunkSize){
     // Kein Split nötig — wir geben das Original 1:1 zurück
