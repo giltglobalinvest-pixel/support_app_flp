@@ -16,6 +16,8 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<!-- pdf-lib für Auto-Split großer PDFs (>100 Seiten Anthropic-Limit) -->
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&family=Manrope:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -922,7 +924,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.9.19';
+const APP_VERSION = 'v2.9.20';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -5560,7 +5562,7 @@ function renderWissenItem(){
   const body = document.getElementById('wissenItemBody');
   const docs = STATE.wissen.filter(w => w.fields.category === WISSEN_CURRENT.category && w.fields.item_name === WISSEN_CURRENT.itemName);
   let html = '';
-  html += '<div class="upload-zone" onclick="document.getElementById(\'wissenFileInput\').click()"><div class="icon">📄</div><div>PDF hier hochladen<br><span style="font-size:11px">(max 10 MB · wird automatisch via KI analysiert)</span></div></div>';
+  html += '<div class="upload-zone" onclick="document.getElementById(\'wissenFileInput\').click()"><div class="icon">📄</div><div>PDF hier hochladen<br><span style="font-size:11px">(max 10 MB · große PDFs werden automatisch in Teile gesplittet)</span></div></div>';
   html += '<input type="file" id="wissenFileInput" accept="application/pdf" style="display:none" onchange="handleWissenUpload(this)">';
   if(docs.length === 0){
     html += '<div style="color:var(--text-very-dim);font-size:12px;font-style:italic;text-align:center;padding:14px 0">Noch keine Dokumente</div>';
@@ -5585,54 +5587,133 @@ function renderWissenItem(){
   body.innerHTML = html;
 }
 
+// Macht die Anthropic-API-Fehlermeldungen menschlich lesbar
+function humanizeAnalysisError(rawMsg){
+  const msg = String(rawMsg || '');
+  if(/maximum of 100 PDF pages/i.test(msg)) return 'PDF zu lang (über 100 Seiten). Wird automatisch in kleinere Teile gesplittet — falls dieser Fehler trotzdem erscheint, das PDF bitte vorher manuell teilen.';
+  if(/rate limit|429/i.test(msg)) return 'Rate-Limit überschritten. Wird automatisch erneut versucht.';
+  if(/api key|unauthor/i.test(msg)) return 'API-Key ungültig oder nicht konfiguriert.';
+  if(/invalid base64|too large|payload/i.test(msg)) return 'PDF zu groß für die KI-Analyse. Bitte kleiner halten oder splitten.';
+  if(/load failed|network|fetch/i.test(msg)) return 'Netzwerkfehler beim Senden — Verbindung prüfen und erneut versuchen.';
+  return msg;
+}
+
+// Bytes → base64 (für gesplittete PDFs aus pdf-lib)
+function bytesToBase64(bytes){
+  let bin = '';
+  const len = bytes.byteLength;
+  for(let i = 0; i < len; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+
+// Splittet ein PDF (ArrayBuffer) in Teile von max chunkSize Seiten.
+// Returnt [{ bytes: Uint8Array, base64: string, startPage, endPage }, ...]
+async function splitPdfIfNeeded(arrayBuffer, chunkSize){
+  if(typeof PDFLib === 'undefined') throw new Error('pdf-lib nicht geladen');
+  const sourcePdf = await PDFLib.PDFDocument.load(arrayBuffer);
+  const total = sourcePdf.getPageCount();
+  if(total <= chunkSize){
+    // Kein Split nötig — wir geben das Original 1:1 zurück
+    const u8 = new Uint8Array(arrayBuffer);
+    return { totalPages: total, chunks: [{ bytes: u8, base64: bytesToBase64(u8), startPage: 1, endPage: total }] };
+  }
+  const chunks = [];
+  for(let start = 0; start < total; start += chunkSize){
+    const end = Math.min(start + chunkSize, total);
+    const chunkPdf = await PDFLib.PDFDocument.create();
+    const indices = [];
+    for(let i = start; i < end; i++) indices.push(i);
+    const copied = await chunkPdf.copyPages(sourcePdf, indices);
+    copied.forEach(p => chunkPdf.addPage(p));
+    const bytes = await chunkPdf.save();
+    chunks.push({
+      bytes,
+      base64: bytesToBase64(bytes),
+      startPage: start + 1,
+      endPage: end,
+    });
+  }
+  return { totalPages: total, chunks };
+}
+
 async function handleWissenUpload(input){
   const file = input.files[0];
   input.value = '';
   if(!file) return;
   if(file.size > 10 * 1024 * 1024){ toast('Max 10 MB pro Datei', 'error'); return; }
   if(file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')){ toast('Nur PDF', 'error'); return; }
+  if(typeof PDFLib === 'undefined'){ toast('pdf-lib lädt noch — bitte 2 Sekunden warten und erneut versuchen', 'error'); return; }
+
   toast('Lade hoch...');
   try {
-    // Base64 lesen
-    const base64 = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result.split(',')[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-    // Wissen-Record anlegen
+    const arrayBuffer = await file.arrayBuffer();
+    const split = await splitPdfIfNeeded(arrayBuffer, 90);
+    const totalChunks = split.chunks.length;
+    if(totalChunks > 1){
+      toast('PDF hat '+split.totalPages+' Seiten — wird in '+totalChunks+' Teile gesplittet', 'info');
+    }
+
+    const baseName = file.name.replace(/\.pdf$/i, '');
     const created = new Date().toISOString();
-    const rec = await atWrite('Wissen', {
-      title: file.name,
-      category: WISSEN_CURRENT.category,
-      item_name: WISSEN_CURRENT.itemName,
-      uploaded_by: APP_KEYS.user.name || APP_KEYS.user.api_key,
-      uploaded_at: created,
-      status: 'processing',
-    });
-    // PDF anhängen via Attachment-Upload
-    const upRes = await fetch(
-      'https://content.airtable.com/v0/' + APP_CONFIG.APP_BASE_ID + '/' + rec.id + '/pdf/uploadAttachment',
-      { method:'POST',
-        headers:{'Authorization':'Bearer '+APP_KEYS.airtableWriteKey,'Content-Type':'application/json'},
-        body: JSON.stringify({ contentType:'application/pdf', file: base64, filename: file.name }) }
-    );
-    if(!upRes.ok) throw new Error('Upload zu Airtable fehlgeschlagen');
-    toast('Hochgeladen — KI-Analyse läuft...', 'success');
+
+    // Pro Chunk: Wissens-Record anlegen, PDF anhängen, Analyse anstoßen (sequentiell)
+    for(let i = 0; i < totalChunks; i++){
+      const chunk = split.chunks[i];
+      const partLabel = totalChunks > 1 ? ' · Teil '+(i+1)+'/'+totalChunks+' (S.'+chunk.startPage+'-'+chunk.endPage+')' : '';
+      const fileName = totalChunks > 1
+        ? baseName + '__teil_'+(i+1)+'_von_'+totalChunks+'.pdf'
+        : file.name;
+
+      const rec = await atWrite('Wissen', {
+        title: baseName + partLabel + '.pdf',
+        category: WISSEN_CURRENT.category,
+        item_name: WISSEN_CURRENT.itemName,
+        uploaded_by: APP_KEYS.user.name || APP_KEYS.user.api_key,
+        uploaded_at: created,
+        status: 'processing',
+      });
+      // PDF (Chunk) zu Airtable hochladen
+      const upRes = await fetch(
+        'https://content.airtable.com/v0/' + APP_CONFIG.APP_BASE_ID + '/' + rec.id + '/pdf/uploadAttachment',
+        { method:'POST',
+          headers:{'Authorization':'Bearer '+APP_KEYS.airtableWriteKey,'Content-Type':'application/json'},
+          body: JSON.stringify({ contentType:'application/pdf', file: chunk.base64, filename: fileName }) }
+      );
+      if(!upRes.ok){ throw new Error('Upload zu Airtable fehlgeschlagen (Teil '+(i+1)+')'); }
+
+      // Hintergrund-Analyse (mit closure auf chunk-base64 + Pause zwischen chunks)
+      const chunkBase64 = chunk.base64;
+      const chunkIdx = i;
+      const recId = rec.id;
+      // Sequentiell statt parallel: Pause zwischen analysen damit Rate-Limit ok bleibt
+      (async () => {
+        if(chunkIdx > 0) await new Promise(r => setTimeout(r, 8000)); // 8s Versatz pro Chunk
+        try {
+          await analyzeWissenPdf(recId, chunkBase64);
+          awardTokens(0, POINTS_WISSEN, 'Wissen-PDF (Teil)').catch(()=>{});
+        } catch(e){
+          await atUpdate('Wissen', recId, {
+            status: 'error',
+            summary: 'Analyse-Fehler: ' + humanizeAnalysisError(e.message || 'unknown')
+          }).catch(()=>{});
+        }
+        // Refresh nach jedem fertigen Chunk
+        await loadWissen();
+        renderWissenItem();
+        try { renderConstellation(); renderFilterStrip(); } catch(e){}
+      })();
+    }
+
     await loadWissen();
     renderWissenItem();
-    // KI-Analyse im Hintergrund
-    analyzeWissenPdf(rec.id, base64).then(()=>{
-      loadWissen().then(()=>{
-        renderWissenItem();
-        // Konstellation refreshen — neuer AI-Specialist taucht eventuell auf
-        try { renderConstellation(); renderFilterStrip(); } catch(e){}
-      });
-      awardTokens(0, POINTS_WISSEN, 'Wissen-PDF hochgeladen').catch(()=>{});
-    }).catch(e => {
-      atUpdate('Wissen', rec.id, { status: 'error', summary: 'Analyse-Fehler: ' + (e.message||'unknown') }).catch(()=>{});
-    });
-  } catch(e){ toast(e.message, 'error'); }
+    if(totalChunks > 1){
+      toast('Hochgeladen — '+totalChunks+' Teile werden nacheinander analysiert', 'success');
+    } else {
+      toast('Hochgeladen — KI-Analyse läuft...', 'success');
+    }
+  } catch(e){
+    toast(humanizeAnalysisError(e.message || e), 'error');
+  }
 }
 
 // Re-fetcht PDF von Airtable als base64 — robust auch wenn der Original-Upload schon gelaufen ist.
@@ -5752,9 +5833,10 @@ async function retryWissenAnalysis(recordId){
     try { renderConstellation(); renderFilterStrip(); } catch(e){}
     toast('Analyse fertig', 'success');
   } catch(e){
-    await atUpdate('Wissen', recordId, { status: 'error', summary: 'Analyse-Fehler: ' + (e.message||'unknown') }).catch(()=>{});
+    const niceMsg = humanizeAnalysisError(e.message || 'unknown');
+    await atUpdate('Wissen', recordId, { status: 'error', summary: 'Analyse-Fehler: ' + niceMsg }).catch(()=>{});
     await loadWissen(); renderWissenItem();
-    toast('Analyse fehlgeschlagen: ' + (e.message || ''), 'error');
+    toast('Analyse fehlgeschlagen: ' + niceMsg, 'error');
   }
 }
 
