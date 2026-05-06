@@ -955,7 +955,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.9.31';
+const APP_VERSION = 'v2.9.32';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -5761,10 +5761,25 @@ async function splitPdfIfNeeded(arrayBuffer, chunkSize){
     return { totalPages: total, chunks: [{ bytes: u8Original, base64: bytesToBase64(u8Original), startPage: 1, endPage: total }] };
   }
 
-  // Verschlüsselte PDFs > Chunk-Size sind problematisch: copyPages lässt Inhalte oft "leer" werden,
-  // weil die Page-Streams verschlüsselt bleiben. Hier explizit ablehnen mit klarer Anleitung.
+  // Bei verschlüsselten PDFs versuchen wir zuerst, die Encryption zu entfernen
+  // indem das PDF mit pdf-lib neu gespeichert wird. Klappt für owner-only-encrypted PDFs.
   if(sourcePdf.isEncrypted){
-    throw new Error('Das PDF ist verschlüsselt und hat '+total+' Seiten. Beim Splitten gehen Inhalte verloren — nur die unverschlüsselten Cover/TOC-Seiten kommen durch. Bitte mit macOS Vorschau öffnen, „Datei → Exportieren als PDF" (ohne Verschlüsselung) wählen und das exportierte PDF neu hochladen. Dann läuft der Auto-Split sauber.');
+    try {
+      // Re-save ohne Encryption (pdf-lib schreibt standardmäßig unencrypted)
+      const reSaved = await sourcePdf.save({ updateFieldAppearances: false });
+      // Nochmal laden ohne ignoreEncryption — wenn das durchläuft, war's erfolgreich
+      const verifyPdf = await PDFLib.PDFDocument.load(reSaved, { ignoreEncryption: false });
+      if(!verifyPdf.isEncrypted){
+        // Erfolg! Mit dem entschlüsselten PDF arbeiten
+        sourcePdf = verifyPdf;
+        // total Seitenzahl bleibt gleich (Re-save kopiert alle Pages)
+      } else {
+        throw new Error('still encrypted after re-save');
+      }
+    } catch(decryptErr){
+      console.warn('Auto-Decrypt failed:', decryptErr?.message);
+      throw new Error('Das PDF ist verschlüsselt (Owner-Passwort) und hat '+total+' Seiten. Browser-Auto-Entschlüsseln hat nicht geklappt. Bitte mit macOS Vorschau öffnen, „Datei → Exportieren als PDF" (ohne Verschlüsselung) wählen und das exportierte PDF neu hochladen.');
+    }
   }
 
   // Splitting-Versuch mit try/catch — wenn ein einzelner copyPages-Call failed → fallback
