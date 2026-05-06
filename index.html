@@ -924,7 +924,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.9.24';
+const APP_VERSION = 'v2.9.25';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -3854,6 +3854,7 @@ async function uploadVoiceMessage(file, transcript){
       last_msg: '🎙 ' + (transcript ? transcript.slice(0, 80) : 'Sprachnachricht'),
       last_msg_at: created,
     });
+    markChatRead(STATE.currentChat.fields.chat_id, created);
     await loadMessages();
     renderMessages();
     toast(t('voice_sent'), 'success');
@@ -3975,6 +3976,7 @@ async function handleChatAttachment(input){
       last_msg: '📎 ' + file.name.slice(0, 80),
       last_msg_at: created,
     });
+    markChatRead(STATE.currentChat.fields.chat_id, created);
     await loadMessages();
     renderMessages();
     toast('Hochgeladen', 'success');
@@ -4054,8 +4056,8 @@ async function sendChatMessage(){
       last_msg: txt.slice(0, 100),
       last_msg_at: created,
     });
-    // Eigene Nachricht nicht als "neu" für mich selbst werten — sonst Push-Notification an mich
-    LAST_KNOWN_MSG_AT[STATE.currentChat.fields.chat_id] = created;
+    // Eigene Aktion → Chat als gelesen markieren
+    markChatRead(STATE.currentChat.fields.chat_id, created);
     await loadMessages();
     renderMessages();
 
@@ -4206,6 +4208,8 @@ Chat-Titel: ${STATE.currentChat.fields.title || ''}${availableSpecsHint}${knowle
       last_msg: aiSenderName + ': ' + aiText.slice(0, 80),
       last_msg_at: created,
     });
+    // KI-Antwort kommt im aktuell geöffneten Chat → als gelesen werten
+    markChatRead(STATE.currentChat.fields.chat_id, created);
     await loadMessages();
     document.getElementById('aiTyping')?.remove();
     renderMessages();
@@ -4379,10 +4383,17 @@ function isChatUnread(c){
   if(!lastMsg) return false;
   if(STATE.currentChat?.fields?.chat_id === cid) return false; // aktiver Chat = gelesen
   const lastViewed = localStorage.getItem('chat_viewed_'+cid) || '';
-  // Plus: Sender war ich selbst → nicht als unread markieren
   if(lastMsg <= lastViewed) return false;
-  if((c.fields.last_msg || '').startsWith(APP_KEYS.user.name+':')) return false;
   return true;
+}
+
+// Markiert einen Chat als gelesen — wird nach jeder eigenen Aktion (Text, Voice, Anhang, KI-Antwort) aufgerufen.
+function markChatRead(chatId, timestamp){
+  if(!chatId) return;
+  const ts = timestamp || new Date().toISOString();
+  localStorage.setItem('chat_viewed_'+chatId, ts);
+  LAST_KNOWN_MSG_AT[chatId] = ts;
+  UNREAD_CHATS.delete(chatId);
 }
 
 function setChatsFilter(filter){
