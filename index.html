@@ -924,7 +924,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.9.22';
+const APP_VERSION = 'v2.9.23';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -5590,7 +5590,8 @@ function renderWissenItem(){
 // Macht die Anthropic-API-Fehlermeldungen menschlich lesbar
 function humanizeAnalysisError(rawMsg){
   const msg = String(rawMsg || '');
-  if(/maximum of 100 PDF pages/i.test(msg)) return 'PDF zu lang (über 100 Seiten). Wird automatisch in kleinere Teile gesplittet — falls dieser Fehler trotzdem erscheint, das PDF bitte vorher manuell teilen.';
+  if(/maximum of 100 PDF pages/i.test(msg)) return 'PDF ist verschlüsselt und kann nicht automatisch gesplittet werden — und es ist >100 Seiten lang. Bitte mit macOS Vorschau öffnen, „Datei → Exportieren als PDF" (ohne Verschlüsselung) und das exportierte PDF neu hochladen. Dann läuft das automatische Splitting.';
+  if(/Expected instance of/i.test(msg)) return 'PDF konnte nicht gelesen werden (verschlüsselte Page-Objekte). Bitte mit macOS Vorschau öffnen und „Datei → Exportieren als PDF" — das entschlüsselte PDF dann neu hochladen.';
   if(/PDFDocument\.load.*encrypted|encrypted.*ignoreEncryption/i.test(msg)) return 'PDF ist passwortgeschützt. Bitte das Passwort entfernen (in Vorschau: „Datei → Exportieren → Passwort weglassen") und neu hochladen.';
   if(/passwortgeschützt|password|encrypted/i.test(msg)) return msg; // schon menschlich
   if(/rate limit|429/i.test(msg)) return 'Rate-Limit überschritten. Wird automatisch erneut versucht.';
@@ -5609,43 +5610,52 @@ function bytesToBase64(bytes){
 }
 
 // Splittet ein PDF (ArrayBuffer) in Teile von max chunkSize Seiten.
-// Returnt { totalPages, chunks: [{ bytes, base64, startPage, endPage }, ...] }
-// ignoreEncryption: true → öffnet auch PDFs mit verschlüsselten Metadaten (häufig bei Service-Manuals)
+// Returnt { totalPages, chunks, unsplittable }
+// - Bei Erfolg: chunks enthält jeweils ≤ chunkSize Seiten
+// - Bei pdf-lib-Fehler (z.B. verschlüsselte Page-Objekte): fallback = 1 Chunk mit Original,
+//   unsplittable=true → Aufrufer kann brute-force an Anthropic schicken (klappt oft, Anthropic-Parser ist robuster)
 async function splitPdfIfNeeded(arrayBuffer, chunkSize){
   if(typeof PDFLib === 'undefined') throw new Error('pdf-lib nicht geladen');
+  const u8Original = new Uint8Array(arrayBuffer);
+  const fallbackToOriginal = () => ({
+    totalPages: -1,
+    unsplittable: true,
+    chunks: [{ bytes: u8Original, base64: bytesToBase64(u8Original), startPage: 1, endPage: -1 }],
+  });
+
   let sourcePdf;
   try {
     sourcePdf = await PDFLib.PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
   } catch(e){
-    // Echtes Password-Encryption (nicht nur Metadaten) → klare Fehlermeldung
-    if(/encrypted|password/i.test(e.message || '')){
-      throw new Error('PDF ist passwortgeschützt. Bitte das Passwort entfernen (in Vorschau: „Datei → Exportieren → Passwort weglassen") und neu hochladen.');
-    }
-    throw e;
+    console.warn('pdf-lib load failed, fallback to original:', e?.message);
+    return fallbackToOriginal();
   }
-  const total = sourcePdf.getPageCount();
+  let total;
+  try { total = sourcePdf.getPageCount(); }
+  catch(e){ console.warn('pdf-lib getPageCount failed:', e?.message); return fallbackToOriginal(); }
+
   if(total <= chunkSize){
-    // Kein Split nötig — wir geben das Original 1:1 zurück
-    const u8 = new Uint8Array(arrayBuffer);
-    return { totalPages: total, chunks: [{ bytes: u8, base64: bytesToBase64(u8), startPage: 1, endPage: total }] };
+    return { totalPages: total, chunks: [{ bytes: u8Original, base64: bytesToBase64(u8Original), startPage: 1, endPage: total }] };
   }
-  const chunks = [];
-  for(let start = 0; start < total; start += chunkSize){
-    const end = Math.min(start + chunkSize, total);
-    const chunkPdf = await PDFLib.PDFDocument.create();
-    const indices = [];
-    for(let i = start; i < end; i++) indices.push(i);
-    const copied = await chunkPdf.copyPages(sourcePdf, indices);
-    copied.forEach(p => chunkPdf.addPage(p));
-    const bytes = await chunkPdf.save();
-    chunks.push({
-      bytes,
-      base64: bytesToBase64(bytes),
-      startPage: start + 1,
-      endPage: end,
-    });
+
+  // Splitting-Versuch mit try/catch — wenn ein einzelner copyPages-Call failed → fallback
+  try {
+    const chunks = [];
+    for(let start = 0; start < total; start += chunkSize){
+      const end = Math.min(start + chunkSize, total);
+      const chunkPdf = await PDFLib.PDFDocument.create();
+      const indices = [];
+      for(let i = start; i < end; i++) indices.push(i);
+      const copied = await chunkPdf.copyPages(sourcePdf, indices);
+      copied.forEach(p => chunkPdf.addPage(p));
+      const bytes = await chunkPdf.save();
+      chunks.push({ bytes, base64: bytesToBase64(bytes), startPage: start + 1, endPage: end });
+    }
+    return { totalPages: total, chunks };
+  } catch(e){
+    console.warn('pdf-lib copyPages failed, fallback to original:', e?.message);
+    return fallbackToOriginal();
   }
-  return { totalPages: total, chunks };
 }
 
 async function handleWissenUpload(input){
