@@ -955,7 +955,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.9.30';
+const APP_VERSION = 'v2.9.31';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -5711,6 +5711,8 @@ function renderWissenItem(){
 // Macht die Anthropic-API-Fehlermeldungen menschlich lesbar
 function humanizeAnalysisError(rawMsg){
   const msg = String(rawMsg || '');
+  // Eigene gut formulierte Splitting-Fehlermeldung schon menschlich — direkt durchreichen
+  if(/exportieren als PDF|verlieren|gehen Inhalte verloren/i.test(msg)) return msg;
   if(/maximum of 100 PDF pages/i.test(msg)) return 'PDF ist verschlüsselt und kann nicht automatisch gesplittet werden — und es ist >100 Seiten lang. Bitte mit macOS Vorschau öffnen, „Datei → Exportieren als PDF" (ohne Verschlüsselung) und das exportierte PDF neu hochladen. Dann läuft das automatische Splitting.';
   if(/Expected instance of/i.test(msg)) return 'PDF konnte nicht gelesen werden (verschlüsselte Page-Objekte). Bitte mit macOS Vorschau öffnen und „Datei → Exportieren als PDF" — das entschlüsselte PDF dann neu hochladen.';
   if(/PDFDocument\.load.*encrypted|encrypted.*ignoreEncryption/i.test(msg)) return 'PDF ist passwortgeschützt. Bitte das Passwort entfernen (in Vorschau: „Datei → Exportieren → Passwort weglassen") und neu hochladen.';
@@ -5757,6 +5759,12 @@ async function splitPdfIfNeeded(arrayBuffer, chunkSize){
 
   if(total <= chunkSize){
     return { totalPages: total, chunks: [{ bytes: u8Original, base64: bytesToBase64(u8Original), startPage: 1, endPage: total }] };
+  }
+
+  // Verschlüsselte PDFs > Chunk-Size sind problematisch: copyPages lässt Inhalte oft "leer" werden,
+  // weil die Page-Streams verschlüsselt bleiben. Hier explizit ablehnen mit klarer Anleitung.
+  if(sourcePdf.isEncrypted){
+    throw new Error('Das PDF ist verschlüsselt und hat '+total+' Seiten. Beim Splitten gehen Inhalte verloren — nur die unverschlüsselten Cover/TOC-Seiten kommen durch. Bitte mit macOS Vorschau öffnen, „Datei → Exportieren als PDF" (ohne Verschlüsselung) wählen und das exportierte PDF neu hochladen. Dann läuft der Auto-Split sauber.');
   }
 
   // Splitting-Versuch mit try/catch — wenn ein einzelner copyPages-Call failed → fallback
