@@ -851,6 +851,22 @@ button{cursor:pointer;border:none;background:none}
   </div>
 </div>
 
+<!-- WALKTHROUGH / TOUR MODAL (First-time user explainer) -->
+<div class="modal" id="walkthroughModal">
+  <div class="modal-sheet" style="max-width:440px;margin:auto">
+    <div class="modal-header">
+      <div class="modal-title" id="walkthroughTitle">Willkommen!</div>
+      <button class="modal-close" onclick="dismissWalkthrough(true)">×</button>
+    </div>
+    <div class="modal-body" id="walkthroughBody"></div>
+    <div class="modal-footer" style="display:flex;gap:6px;align-items:center">
+      <button class="action-button cancel" onclick="dismissWalkthrough(true)" id="walkthroughSkipBtn" style="flex:0 0 auto;font-size:10px;padding:14px 10px">Überspringen</button>
+      <button class="action-button" onclick="walkthroughBack()" id="walkthroughBackBtn" style="display:none;flex:0 0 50px">←</button>
+      <button class="action-button primary" onclick="walkthroughNext()" id="walkthroughNextBtn" style="flex:1">Weiter →</button>
+    </div>
+  </div>
+</div>
+
 <!-- INSTALL HINT MODAL (Add to Home Screen) -->
 <div class="modal" id="installHintModal">
   <div class="modal-sheet" style="max-width:420px;margin:auto">
@@ -906,7 +922,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.9.18';
+const APP_VERSION = 'v2.9.19';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -1695,6 +1711,27 @@ const I18N = {
     install_android_button: 'Jetzt installieren',
     install_desktop_title: 'Du nutzt die Desktop-Version',
     install_desktop_text: 'Auf dem Smartphone kannst du diese App auch wie eine native App zum Home-Bildschirm hinzufügen — dann hast du sie immer schnell zur Hand.',
+    // Walkthrough / Tour
+    wt_title: 'Willkommen!',
+    wt_skip: 'Überspringen',
+    wt_back: '←',
+    wt_next: 'Weiter →',
+    wt_finish: 'Los geht\'s →',
+    wt_settings: 'App-Tour erneut anzeigen',
+    wt_1_title: 'Hallo, ich bin der FLP Lift Captain!',
+    wt_1_text: 'Ich helfe dir bei jedem Aufzugs-Problem. Lass mich dir kurz die wichtigsten Funktionen zeigen — dauert keine 30 Sekunden.',
+    wt_2_title: 'Die Konstellation',
+    wt_2_text: 'Auf der Startseite siehst du Avatare. <strong>Lila mit „AI"-Badge</strong> sind KI-Spezialisten — jeder kennt ein bestimmtes Aufzugsmodell, eine Steuerung oder einen Frequenzumrichter. <strong>Andere Farben</strong> sind echte Kollegen aus deinem Netzwerk.',
+    wt_3_title: 'Filter & Suche',
+    wt_3_text: 'Mit den <strong>Filter-Chips</strong> oben findest du gezielt Spezialisten. Filter setzen → es erscheinen passende AI-Avatare zum Thema (z.B. „TMS9000" für die Steuerung).',
+    wt_4_title: 'Frag den Captain',
+    wt_4_text: 'Tippe unten links auf <strong>„🤖 KI fragen"</strong> für allgemeine Fragen. Die Master-KI hat Überblick über alle Wissensquellen und schickt dich bei Bedarf zum richtigen Spezialisten.',
+    wt_5_title: 'Wissensbasis füttern',
+    wt_5_text: 'Über <strong>Einstellungen → Wissensbasis</strong> lädst du PDFs hoch (Service-Manuals, Fehlercode-Listen). Daraus entstehen automatisch neue KI-Spezialisten — je mehr Wissen, desto höher die Medaille des Avatars.',
+    wt_6_title: 'Chats verwalten',
+    wt_6_text: 'Im Tab <strong>„Meine Chats"</strong> findest du alle laufenden Gespräche. Wenn du einen Chat als <strong>gelöst</strong> markierst, fragt der Captain ob er die Lehre in die Wissensbasis übernehmen soll — so wird die App immer schlauer.',
+    wt_7_title: 'Du bist startklar!',
+    wt_7_text: 'Tippe einfach einen Avatar an um einen Chat zu starten. Bei Fragen → die Master-KI hilft. Viel Erfolg!',
   },
   en: {
     login_eyebrow: 'FLP · LIFT CAPTAIN',
@@ -1876,6 +1913,26 @@ const I18N = {
     install_android_button: 'Install now',
     install_desktop_title: 'You’re on the desktop version',
     install_desktop_text: 'On your phone you can add this app to your home screen and use it like a native app — always one tap away.',
+    wt_title: 'Welcome!',
+    wt_skip: 'Skip',
+    wt_back: '←',
+    wt_next: 'Next →',
+    wt_finish: 'Let\'s go →',
+    wt_settings: 'Show app tour again',
+    wt_1_title: 'Hi, I\'m the FLP Lift Captain!',
+    wt_1_text: 'I help you with any elevator issue. Let me quickly show you the key features — takes less than 30 seconds.',
+    wt_2_title: 'The Constellation',
+    wt_2_text: 'On the home screen you see avatars. <strong>Purple with an „AI" badge</strong> are AI specialists — each knows a specific elevator model, controller or frequency converter. <strong>Other colors</strong> are real colleagues from your network.',
+    wt_3_title: 'Filter & Search',
+    wt_3_text: 'Use the <strong>filter chips</strong> at the top to find specialists. When you set a filter → matching AI avatars for that topic appear (e.g. „TMS9000" for the controller).',
+    wt_4_title: 'Ask the Captain',
+    wt_4_text: 'Tap <strong>„🤖 Ask AI"</strong> at the bottom left for general questions. The master AI has an overview of all knowledge sources and points you to the right specialist if needed.',
+    wt_5_title: 'Feed the knowledge base',
+    wt_5_text: 'Via <strong>Settings → Knowledge base</strong> you upload PDFs (service manuals, error code lists). New AI specialists appear automatically — the more knowledge, the higher the medal on the avatar.',
+    wt_6_title: 'Manage chats',
+    wt_6_text: 'In the <strong>„My Chats"</strong> tab you find all running conversations. When you mark a chat as <strong>solved</strong>, the Captain asks if the learning should be added to the knowledge base — that\'s how the app gets smarter over time.',
+    wt_7_title: 'You\'re all set!',
+    wt_7_text: 'Just tap an avatar to start a chat. Need help? The master AI is there. Have fun!',
   },
 };
 
@@ -2066,6 +2123,7 @@ async function afterOnboarding(){
   setTimeout(()=>{ debugLog('loadHomeDataDeferred start (background)'); loadHomeDataDeferred().then(()=>{
     debugLog('FULLY READY ✓✓');
     requestNotificationPermission();
+    maybeShowWalkthrough();
     maybeShowInstallHint();
     startGlobalChatsPolling();
     // Admin-Polling für offene Key-Anfragen
@@ -2079,6 +2137,92 @@ async function afterOnboarding(){
   window._hbInterval = setInterval(()=>{
     if(STATE.myProfile) atUpdate('TechnikerProfile', STATE.myProfile.id, { last_seen: new Date().toISOString() }).catch(()=>{});
   }, 60000);
+}
+
+// ============================================================
+// WALKTHROUGH / FIRST-TIME APP TOUR — 7 Slides erklären die App
+// ============================================================
+let WALKTHROUGH = { step: 0, total: 7 };
+
+function maybeShowWalkthrough(){
+  if(localStorage.getItem('walkthrough_done') === '1') return;
+  setTimeout(() => openWalkthrough(), 800);
+}
+
+function openWalkthrough(){
+  WALKTHROUGH.step = 0;
+  renderWalkthrough();
+  openModal('walkthroughModal');
+}
+
+function walkthroughIcons(step){
+  // Pro Slide ein passendes Icon (Captain-Hero, Konstellation, Filter, KI, Wissen, Chat, Daumen-hoch)
+  const icons = ['🦸', '🌌', '🔍', '🤖', '📚', '💬', '🚀'];
+  return icons[step] || '✨';
+}
+
+function renderWalkthrough(){
+  const body = document.getElementById('walkthroughBody');
+  const titleEl = document.getElementById('walkthroughTitle');
+  const nextBtn = document.getElementById('walkthroughNextBtn');
+  const backBtn = document.getElementById('walkthroughBackBtn');
+  const skipBtn = document.getElementById('walkthroughSkipBtn');
+  const step = WALKTHROUGH.step;
+  const total = WALKTHROUGH.total;
+
+  titleEl.textContent = t('wt_title');
+  skipBtn.textContent = t('wt_skip');
+
+  // Progress dots
+  let dotsHtml = '<div class="install-hint-progress">';
+  for(let i = 0; i < total; i++){
+    const cls = i < step ? 'dot done' : (i === step ? 'dot active' : 'dot');
+    dotsHtml += '<div class="'+cls+'"></div>';
+  }
+  dotsHtml += '</div>';
+
+  const headline = t('wt_'+(step+1)+'_title');
+  const text = t('wt_'+(step+1)+'_text');
+  const icon = walkthroughIcons(step);
+  // Erste Folie: zeige das App-Icon statt Emoji
+  let iconHtml;
+  if(step === 0){
+    iconHtml = '<div class="install-hint-icon-wrap"><div class="install-hint-icon" style="background:transparent;border:none;box-shadow:none;width:140px;height:140px;animation:none"><img src="icons/icon-512.png" alt="Lift Captain" style="width:100%;height:100%;border-radius:28px"></div></div>';
+  } else if(step === total - 1){
+    iconHtml = '<div class="install-hint-icon-wrap"><div class="install-hint-icon success">'+icon+'</div></div>';
+  } else {
+    iconHtml = '<div class="install-hint-icon-wrap"><div class="install-hint-icon">'+icon+'</div></div>';
+  }
+
+  body.innerHTML = dotsHtml +
+    '<div class="install-hint-step">' +
+      iconHtml +
+      '<div class="install-hint-headline">'+esc(headline)+'</div>' +
+      '<div class="install-hint-text">'+text+'</div>' +
+    '</div>';
+
+  backBtn.style.display = step > 0 ? 'flex' : 'none';
+  nextBtn.textContent = (step < total - 1) ? t('wt_next') : t('wt_finish');
+}
+
+function walkthroughNext(){
+  if(WALKTHROUGH.step < WALKTHROUGH.total - 1){
+    WALKTHROUGH.step++;
+    renderWalkthrough();
+  } else {
+    dismissWalkthrough(true);
+  }
+}
+function walkthroughBack(){
+  if(WALKTHROUGH.step > 0){ WALKTHROUGH.step--; renderWalkthrough(); }
+}
+function dismissWalkthrough(persist){
+  if(persist) localStorage.setItem('walkthrough_done', '1');
+  closeModal('walkthroughModal');
+}
+function resetWalkthroughAndShow(){
+  localStorage.removeItem('walkthrough_done');
+  openWalkthrough();
 }
 
 // ============================================================
@@ -4323,6 +4467,7 @@ function openSettings(){
     ${isAdmin() ? '<div class="settings-row"><div><div class="settings-label">'+t('settings_dashboard')+'</div></div><button class="settings-action" onclick="openDashboard()">'+t('settings_open')+'</button></div>' : ''}
     ${isAdmin() ? '<div class="settings-row"><div><div class="settings-label">'+t('settings_key_requests')+'</div></div><button class="settings-action" onclick="openAdminRequests()">'+t('settings_open')+'</button></div>' : ''}
     ${isAdmin() ? '<div class="settings-row"><div><div class="settings-label">'+t('settings_map')+'</div></div><button class="settings-action" onclick="openMap()">'+t('settings_open')+'</button></div>' : ''}
+    <div class="settings-row"><div><div class="settings-label">${t('wt_settings')}</div></div><button class="settings-action" onclick="closeModal('settingsModal');resetWalkthroughAndShow()">${t('settings_open')}</button></div>
     <div class="settings-row"><div><div class="settings-label">${t('settings_reload')}</div></div><button class="settings-action" onclick="forceHardReload()">${t('settings_refresh')}</button></div>
     <div class="settings-row"><div class="settings-label">${t('settings_logout')}</div><button class="settings-action danger" onclick="logout()">${t('settings_logout_btn')}</button></div>
     <div class="settings-row"><div class="settings-label">${t('settings_version')}</div><div class="settings-value">${APP_VERSION}</div></div>
