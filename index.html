@@ -875,6 +875,13 @@ button{cursor:pointer;border:none;background:none}
   </div>
 </div>
 
+<!-- PROFIL-PEEK MODAL (kurzer Foto-Blick beim Tap auf Avatar) -->
+<div class="modal" id="profilePeekModal">
+  <div class="modal-sheet" style="max-width:380px;margin:auto">
+    <div class="modal-body" id="profilePeekBody" style="padding:0"></div>
+  </div>
+</div>
+
 <!-- WALKTHROUGH / TOUR MODAL (First-time user explainer) -->
 <div class="modal" id="walkthroughModal">
   <div class="modal-sheet" style="max-width:440px;margin:auto">
@@ -946,7 +953,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.9.28';
+const APP_VERSION = 'v2.9.29';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -3156,10 +3163,67 @@ function handleTechTap(profile){
     else STATE.selected.add(profile.id);
     renderConstellation();
   } else {
-    // 1:1 Chat starten
-    STATE.selected = new Set([profile.id]);
-    startChatWithSelected();
+    // Profil-Peek anzeigen — User entscheidet ob Chat starten
+    showProfilePeek(profile);
   }
+}
+
+let PEEK_PROFILE = null;
+function showProfilePeek(profile){
+  PEEK_PROFILE = profile;
+  const body = document.getElementById('profilePeekBody');
+  if(!body) return;
+  const isAi = !!profile.isAi;
+  const online = isOnline(profile);
+  const photo = avatarPhotoUrl(profile);
+  const dispName = displayName(profile);
+  const initials = makeInitials(dispName);
+  const tier = isAi ? aiTierForKnowledge(profile.knowledgeCount || 0) : tierFor(profile.fields.points || 0);
+  const models = parseList(profile.fields.models);
+  const controls = parseList(profile.fields.controls);
+  const fu = parseList(profile.fields.frequenzumrichter);
+  const tagsHtml = [...models, ...controls, ...fu].slice(0, 6)
+    .map(t => '<span style="font-family:JetBrains Mono,monospace;font-size:9.5px;background:rgba(84,183,255,.10);color:var(--accent);padding:3px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:.06em">'+esc(t)+'</span>')
+    .join(' ');
+
+  let avatarBig;
+  if(photo){
+    avatarBig = '<div style="width:100%;aspect-ratio:1;background-image:url('+esc(photo)+');background-size:cover;background-position:center;background-color:#1a2942"></div>';
+  } else {
+    const presetCls = isAi ? '' : avatarPresetClass(profile, 0);
+    avatarBig = '<div class="'+presetCls+'" style="width:100%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-family:Archivo,sans-serif;font-weight:900;font-stretch:75%;font-size:80px;color:#fff;background:'+(isAi?'#1a2942':'')+'">'+esc(initials)+'</div>';
+  }
+
+  body.innerHTML =
+    '<div style="position:relative">'
+    + avatarBig
+    + (isAi ? '<div style="position:absolute;top:12px;left:12px;background:var(--ai);color:#fff;font-family:JetBrains Mono,monospace;font-size:10px;font-weight:900;padding:5px 10px;border-radius:14px;letter-spacing:.1em">AI</div>' : '')
+    + (online && !isAi ? '<div style="position:absolute;top:12px;right:12px;background:var(--online);color:#0a1428;font-family:JetBrains Mono,monospace;font-size:10px;font-weight:900;padding:5px 10px;border-radius:14px;letter-spacing:.1em">● ONLINE</div>' : '')
+    + (tier ? '<div style="position:absolute;bottom:-18px;right:18px;width:46px;height:46px;border-radius:50%;background:var(--bg);border:3px solid var(--phone-screen);display:flex;align-items:center;justify-content:center;font-size:22px">'+tier.icon+'</div>' : '')
+    + '</div>'
+    + '<div style="padding:24px 18px 16px">'
+    + '<div style="font-family:Archivo,sans-serif;font-weight:900;font-stretch:75%;font-size:24px;letter-spacing:-.02em;line-height:1.1">'+esc(dispName)+'</div>'
+    + (isAi ? '<div style="font-size:12px;color:var(--ai);font-family:JetBrains Mono,monospace;text-transform:uppercase;letter-spacing:.1em;margin-top:4px">'+esc(profile.specialty.value)+' Spezialist</div>' : '')
+    + (tier ? '<div style="font-size:11px;color:var(--text-dim);margin-top:6px">'+tier.icon+' '+esc(tier.label)+(isAi ? ' · '+(profile.knowledgeCount||0)+' Wissens-Einträge' : (profile.fields.points ? ' · '+profile.fields.points+' Punkte' : ''))+'</div>' : '')
+    + (tagsHtml ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:14px">'+tagsHtml+'</div>' : '')
+    + '<div style="display:flex;gap:8px;margin-top:18px">'
+    + '<button class="action-button" onclick="closeModal(\'profilePeekModal\')" style="flex:0 0 auto;padding:14px 16px">'+t('cancel')+'</button>'
+    + '<button class="action-button primary" onclick="peekStartChat()" style="flex:1">'+t('chat_starten')+'</button>'
+    + '</div>'
+    + '</div>';
+  openModal('profilePeekModal');
+}
+function peekStartChat(){
+  if(!PEEK_PROFILE) return;
+  const p = PEEK_PROFILE;
+  PEEK_PROFILE = null;
+  closeModal('profilePeekModal');
+  STATE.selected = new Set([p.id]);
+  // Sicherstellen dass das Profile findbar ist (auch AI-Specialists)
+  if(p.isAi && !STATE.techProfiles.find(x => x.id === p.id)){
+    // AI-Specialist im findProfileById wird über getAiSpecialists() ohnehin aufgelöst — nichts extra zu tun
+  }
+  startChatWithSelected();
 }
 
 function toggleMultiSelect(){
