@@ -254,7 +254,7 @@ button{cursor:pointer;border:none;background:none}
   100%{transform:translate(calc(-50% + var(--drift-x)), calc(-50% + var(--drift-y)))}
 }
 .tech:active .tech-avatar{transform:scale(.95)}
-.tech.hidden-tech{opacity:.12;pointer-events:none}
+.tech.hidden-tech{display:none}
 .tech-avatar{
   border-radius:50%;display:flex;align-items:center;justify-content:center;
   font-family:'Archivo',sans-serif;font-weight:800;font-stretch:75%;position:relative;
@@ -955,7 +955,7 @@ function debugLog(){}
 // ============================================================
 // CONFIG
 // ============================================================
-const APP_VERSION = 'v2.9.32';
+const APP_VERSION = 'v2.9.33';
 const APP_CONFIG = {
   AIRTABLE_READ_KEY: ['patu8KWM8aWByxCG','L.69','fae5d9fa4b94c266b426dadd71a51f574945d840b33569058ab5e9d89ebef3'].join(''),
   MASTER_BASE_ID: 'appzhNrhkLSTEaNFW',
@@ -2917,27 +2917,22 @@ function getAiSpecialists(){
 }
 
 // AI-Specialist sichtbar?
-// - type='model': immer
-// - type='control': nur wenn STATE.filterModal.controls.size > 0 (User filtert nach Steuerung)
-// - type='frequenzumrichter': nur wenn STATE.filterModal.frequenzumrichter.size > 0
-// Zusätzlich muss der Specialist zum aktuellen Filter passen (z.B. wenn Schindler 3300 gefiltert,
-// erscheint der Schindler-3300-Specialist).
+// Sobald IRGENDEIN spezifischer Filter (model/control/fu) gesetzt ist, muss der Specialist
+// exakt zum jeweiligen Filter-Set passen. Sonst (kein Type-Filter): Default-View → nur Modell-Specialists.
 function aiSpecialistVisible(spec){
   const cat = spec.specialty.category;
   const val = spec.specialty.value;
-  if(cat === 'model'){
-    if(STATE.filterModal.models.size && !STATE.filterModal.models.has(val)) return false;
-    return true; // models default sichtbar
+  const fm = STATE.filterModal;
+  const anyTypeFilter = fm.models.size > 0 || fm.controls.size > 0 || fm.frequenzumrichter.size > 0;
+
+  if(anyTypeFilter){
+    if(cat === 'model') return fm.models.has(val);
+    if(cat === 'control') return fm.controls.has(val);
+    if(cat === 'frequenzumrichter') return fm.frequenzumrichter.has(val);
+    return false;
   }
-  if(cat === 'control'){
-    if(STATE.filterModal.controls.size === 0) return false;
-    return STATE.filterModal.controls.has(val);
-  }
-  if(cat === 'frequenzumrichter'){
-    if(STATE.filterModal.frequenzumrichter.size === 0) return false;
-    return STATE.filterModal.frequenzumrichter.has(val);
-  }
-  return false;
+  // Default-View ohne Filter: nur Modell-Specialists sichtbar
+  return cat === 'model';
 }
 function profileMatches(profile){
   if(STATE.filterModal.online && !isOnline(profile)) return false;
